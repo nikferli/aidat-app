@@ -1,0 +1,37 @@
+{
+  "name": "Aidat Yönetim Sistemi",
+  "short_name": "Aidat",
+  "description": "Site aidat takip ve ödeme sistemi",
+  "start_url": "/sakin",
+  "display": "standalone",
+  "background_color": "#1a3c5e",
+  "theme_color": "#1a3c5e",
+  "orientation": "portrait",
+  "lang": "tr",
+  "icons": [
+    {
+      "src": "/icons/icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "/icons/icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
+  ],
+  "shortcuts": [
+    {
+      "name": "Borçlarım",
+      "url": "/sakin",
+      "icons": [{ "src": "/icons/icon-192.png", "sizes": "192x192" }]
+    },
+    {
+      "name": "Ödeme Bildir",
+      "url": "/sakin?sayfa=odeme_bildir",
+      "icons": [{ "src": "/icons/icon-192.png", "sizes": "192x192" }]
+    }
+  ]
+}
