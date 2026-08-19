@@ -35,6 +35,10 @@ export default function Dashboard() {
     toplu: false
   })
   const router = useRouter()
+  const [sakinEkleForm, setSakinEkleForm] = useState({email: '', sifre: '', ad_soyad: '', telefon: '', daire_id: ''})
+const [sakinEkleMesaj, setSakinEkleMesaj] = useState<any>(null)
+const [sakinEkleYukleniyor, setSakinEkleYukleniyor] = useState(false)
+
 
   useEffect(() => {
     const yukle = async () => {
@@ -208,6 +212,49 @@ export default function Dashboard() {
     </div>
   )
 
+const sakinEkle = async (e: React.FormEvent) => {
+  e.preventDefault()
+  setSakinEkleYukleniyor(true)
+  setSakinEkleMesaj(null)
+
+  // API route'a gönder
+  const res = await fetch('/api/sakin-ekle', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      email: sakinEkleForm.email,
+      sifre: sakinEkleForm.sifre,
+      ad_soyad: sakinEkleForm.ad_soyad,
+      telefon: sakinEkleForm.telefon,
+    })
+  })
+
+  const sonuc = await res.json()
+
+  if (sonuc.error) {
+    setSakinEkleMesaj({ tip: 'hata', metin: sonuc.error })
+    setSakinEkleYukleniyor(false)
+    return
+  }
+
+  // Daireye ata
+  if (sakinEkleForm.daire_id) {
+    await supabase
+      .from('daireler')
+      .update({ kullanici_id: sonuc.userId, durum: 'dolu' })
+      .eq('id', parseInt(sakinEkleForm.daire_id))
+  }
+
+  // Sakin listesini yenile
+  const { data: sakinData } = await supabase
+    .from('profiller').select('*')
+    .eq('rol', 'sakin').order('ad_soyad')
+  setSakinler(sakinData || [])
+
+  setSakinEkleMesaj({ tip: 'basari', metin: `${sakinEkleForm.ad_soyad} başarıyla eklendi!` })
+  setSakinEkleForm({ email: '', sifre: '', ad_soyad: '', telefon: '', daire_id: '' })
+  setSakinEkleYukleniyor(false)
+}
   const menuler = [
     { id: 'dashboard',   ikon: '📊', etiket: 'Dashboard' },
     { id: 'sakinler',    ikon: '👥', etiket: 'Sakinler' },
@@ -363,45 +410,104 @@ export default function Dashboard() {
           )}
 
           {/* SAKİNLER */}
-          {aktifSayfa === 'sakinler' && (
-            <div>
-              <h2 style={{ color: '#1a3c5e', marginBottom: '20px' }}>👥 Sakin Listesi</h2>
-              <div style={{
-                background: '#fff', borderRadius: '12px',
-                boxShadow: '0 2px 8px rgba(0,0,0,.06)',
-                border: '1px solid #e5e7eb', overflow: 'hidden'
-              }}>
-                <div style={{ background: '#1a3c5e', color: '#fff', padding: '12px 20px', fontWeight: '700' }}>
-                  Toplam {sakinler.length} sakin
-                </div>
-                {sakinler.length === 0 ? (
-                  <div style={{ padding: '40px', textAlign: 'center', color: '#9ca3af' }}>
-                    Henüz sakin kaydı yok.
-                  </div>
-                ) : sakinler.map((s, i) => (
-                  <div key={s.id} style={{
-                    padding: '14px 20px',
-                    borderBottom: i < sakinler.length - 1 ? '1px solid #f3f4f6' : 'none',
-                    display: 'flex', justifyContent: 'space-between', alignItems: 'center'
-                  }}>
-                    <div>
-                      <div style={{ fontWeight: '700', color: '#374151' }}>{s.ad_soyad}</div>
-                      <div style={{ color: '#6b7280', fontSize: '.8rem' }}>{s.telefon || 'Telefon yok'}</div>
-                    </div>
-                    <span style={{
-                      background: s.durum === 'aktif' ? '#dcfce7' : '#f3f4f6',
-                      color: s.durum === 'aktif' ? '#166534' : '#6b7280',
-                      padding: '2px 10px', borderRadius: '20px',
-                      fontSize: '.75rem', fontWeight: '700'
-                    }}>
-                      {s.durum === 'aktif' ? '✓ Aktif' : 'Pasif'}
-                    </span>
-                  </div>
-                ))}
-              </div>
+{aktifSayfa === 'sakinler' && (
+  <div>
+    <h2 style={{ color: '#1a3c5e', marginBottom: '20px' }}>👥 Sakin Yönetimi</h2>
+
+    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '20px', alignItems: 'flex-start' }}>
+
+      {/* Sakin Ekle Formu */}
+      <div style={{ background: '#fff', borderRadius: '12px', boxShadow: '0 2px 8px rgba(0,0,0,.06)', border: '1px solid #e5e7eb', overflow: 'hidden' }}>
+        <div style={{ background: '#1a3c5e', color: '#fff', padding: '12px 20px', fontWeight: '700' }}>
+          ➕ Yeni Sakin Ekle
+        </div>
+        <div style={{ padding: '20px' }}>
+          {sakinEkleMesaj && (
+            <div style={{
+              background: sakinEkleMesaj.tip === 'basari' ? '#dcfce7' : '#fee2e2',
+              color: sakinEkleMesaj.tip === 'basari' ? '#166534' : '#991b1b',
+              borderRadius: '8px', padding: '12px 16px',
+              marginBottom: '16px', fontSize: '.85rem', fontWeight: '600'
+            }}>
+              {sakinEkleMesaj.metin}
             </div>
           )}
+          <form onSubmit={sakinEkle}>
+            {[
+              { label: 'Ad Soyad', key: 'ad_soyad', type: 'text', placeholder: 'Ahmet Yılmaz' },
+              { label: 'E-posta', key: 'email', type: 'email', placeholder: 'ahmet@example.com' },
+              { label: 'Şifre', key: 'sifre', type: 'password', placeholder: 'En az 6 karakter' },
+              { label: 'Telefon', key: 'telefon', type: 'text', placeholder: '0500...' },
+            ].map(f => (
+              <div key={f.key} style={{ marginBottom: '14px' }}>
+                <label style={{ display: 'block', fontWeight: '700', fontSize: '.82rem', color: '#374151', marginBottom: '6px' }}>
+                  {f.label}
+                </label>
+                <input type={f.type} required={f.key !== 'telefon'}
+                  placeholder={f.placeholder}
+                  value={(sakinEkleForm as any)[f.key]}
+                  onChange={e => setSakinEkleForm(prev => ({ ...prev, [f.key]: e.target.value }))}
+                  style={{ width: '100%', padding: '9px 12px', borderRadius: '8px', border: '1px solid #d1d5db', fontSize: '.85rem', boxSizing: 'border-box' }} />
+              </div>
+            ))}
 
+            <div style={{ marginBottom: '20px' }}>
+              <label style={{ display: 'block', fontWeight: '700', fontSize: '.82rem', color: '#374151', marginBottom: '6px' }}>
+                Daire <span style={{ color: '#9ca3af', fontWeight: '400' }}>(opsiyonel)</span>
+              </label>
+              <select value={sakinEkleForm.daire_id}
+                onChange={e => setSakinEkleForm(prev => ({ ...prev, daire_id: e.target.value }))}
+                style={{ width: '100%', padding: '9px 12px', borderRadius: '8px', border: '1px solid #d1d5db', fontSize: '.85rem' }}>
+                <option value="">-- Sonra Ata --</option>
+                {daireler.filter(d => d.durum === 'bos').map(d => (
+                  <option key={d.id} value={d.id}>
+                    {d.bloklar?.blok_adi} Blok - Daire {d.daire_no}
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            <button type="submit" disabled={sakinEkleYukleniyor}
+              style={{ width: '100%', padding: '11px', background: sakinEkleYukleniyor ? '#9ca3af' : '#1a3c5e', color: '#fff', border: 'none', borderRadius: '10px', fontSize: '.9rem', fontWeight: '700', cursor: 'pointer' }}>
+              {sakinEkleYukleniyor ? 'Ekleniyor...' : '➕ Sakin Ekle'}
+            </button>
+          </form>
+        </div>
+      </div>
+
+      {/* Sakin Listesi */}
+      <div style={{ background: '#fff', borderRadius: '12px', boxShadow: '0 2px 8px rgba(0,0,0,.06)', border: '1px solid #e5e7eb', overflow: 'hidden' }}>
+        <div style={{ background: '#374151', color: '#fff', padding: '12px 20px', fontWeight: '700' }}>
+          👥 Sakin Listesi ({sakinler.length})
+        </div>
+        {sakinler.length === 0 ? (
+          <div style={{ padding: '40px', textAlign: 'center', color: '#9ca3af' }}>
+            Henüz sakin kaydı yok.
+          </div>
+        ) : sakinler.map((s, i) => (
+          <div key={s.id} style={{
+            padding: '14px 20px',
+            borderBottom: i < sakinler.length - 1 ? '1px solid #f3f4f6' : 'none',
+            display: 'flex', justifyContent: 'space-between', alignItems: 'center'
+          }}>
+            <div>
+              <div style={{ fontWeight: '700', color: '#374151' }}>{s.ad_soyad}</div>
+              <div style={{ color: '#6b7280', fontSize: '.8rem' }}>{s.telefon || 'Telefon yok'}</div>
+            </div>
+            <span style={{
+              background: s.durum === 'aktif' ? '#dcfce7' : '#f3f4f6',
+              color: s.durum === 'aktif' ? '#166534' : '#6b7280',
+              padding: '2px 10px', borderRadius: '20px',
+              fontSize: '.75rem', fontWeight: '700'
+            }}>
+              {s.durum === 'aktif' ? '✓ Aktif' : 'Pasif'}
+            </span>
+          </div>
+        ))}
+      </div>
+    </div>
+  </div>
+)}
           {/* TAHAKKUKLAR */}
           {aktifSayfa === 'tahakkuklar' && (
             <div>
