@@ -181,6 +181,64 @@ function OdemeGecmisi({ daireId }: { daireId: number }) {
   )
 }
 
+// ── Duyurular Component ──
+function Duyurular() {
+  const [duyurular, setDuyurular] = useState<any[]>([])
+  const [yukleniyor, setYukleniyor] = useState(true)
+
+  useEffect(() => {
+    const yukle = async () => {
+      const { data } = await supabase
+        .from('duyurular')
+        .select('*')
+        .order('olusturma', { ascending: false })
+      setDuyurular(data || [])
+      setYukleniyor(false)
+    }
+    yukle()
+  }, [])
+
+  if (yukleniyor) return (
+    <div style={{ padding: '40px', textAlign: 'center', color: '#6b7280' }}>
+      Yükleniyor...
+    </div>
+  )
+
+  return (
+    <div>
+      <h2 style={{ color: '#1a3c5e', marginBottom: '20px' }}>📢 Duyurular</h2>
+      {duyurular.length === 0 ? (
+        <div style={{
+          background: '#f8fafc', borderRadius: '12px', padding: '40px',
+          textAlign: 'center', color: '#6b7280'
+        }}>
+          Henüz duyuru yok.
+        </div>
+      ) : duyurular.map((d, i) => (
+        <div key={d.id} style={{
+          background: '#fff', borderRadius: '12px', padding: '20px',
+          marginBottom: '12px', boxShadow: '0 2px 8px rgba(0,0,0,.06)',
+          border: '1px solid #e5e7eb',
+          borderLeft: '4px solid #1a3c5e'
+        }}>
+          <div style={{ fontWeight: '700', color: '#1a3c5e', fontSize: '1rem', marginBottom: '8px' }}>
+            📢 {d.baslik}
+          </div>
+          {d.icerik && (
+            <div style={{ color: '#374151', fontSize: '.9rem', lineHeight: '1.6' }}>
+              {d.icerik}
+            </div>
+          )}
+          <div style={{ color: '#9ca3af', fontSize: '.75rem', marginTop: '10px' }}>
+            {new Date(d.olusturma).toLocaleDateString('tr-TR', {
+              day: 'numeric', month: 'long', year: 'numeric'
+            })}
+          </div>
+        </div>
+      ))}
+    </div>
+  )
+}
 // ── Arıza Bildir Component ──
 function ArizaBildir({ daireId, kullaniciId }: { daireId: number, kullaniciId: string }) {
   const [talepler, setTalepler]       = useState<any[]>([])
@@ -1031,12 +1089,18 @@ export default function SakinPanel() {
           {aktifSayfa === 'ariza_bildir' && (
             <ArizaBildir daireId={daire?.id} kullaniciId={kullanici?.id} />
           )}
+		  
+		            {/* DUYURULAR */}
+          {aktifSayfa === 'duyurular' && (
+            <Duyurular />
+          )}
 
           {/* YAKINDA */}
           {aktifSayfa !== 'borclarim' &&
            aktifSayfa !== 'odeme_gecmisi' &&
            aktifSayfa !== 'odeme_bildir' &&
-           aktifSayfa !== 'ariza_bildir' && (
+           aktifSayfa !== 'ariza_bildir' && 
+		   aktifSayfa !== 'duyurular' && (
             <div style={{
               textAlign: 'center', padding: '60px 20px', color: '#6b7280'
             }}>
