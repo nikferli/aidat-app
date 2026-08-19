@@ -183,21 +183,18 @@ function OdemeGecmisi({ daireId }: { daireId: number }) {
 
 // ── Arıza Bildir Component ──
 function ArizaBildir({ daireId, kullaniciId }: { daireId: number, kullaniciId: string }) {
-  const [talepler, setTalepler] = useState<any[]>([])
-  const [yukleniyor, setYukleniyor] = useState(true)
+  const [talepler, setTalepler]       = useState<any[]>([])
+  const [yukleniyor, setYukleniyor]   = useState(true)
   const [gonderiliyor, setGonderiliyor] = useState(false)
-  const [mesaj, setMesaj] = useState<{ tip: 'basari' | 'hata', metin: string } | null>(null)
+  const [mesaj, setMesaj]             = useState<{ tip: 'basari' | 'hata', metin: string } | null>(null)
   const [form, setForm] = useState({
-    kategori: '',
-    baslik: '',
-    aciklama: '',
-    oncelik: 'normal'
+    kategori: '', baslik: '', aciklama: '', oncelik: 'normal'
   })
 
   const kategoriler = [
-    { grup: 'Teknik', items: ['Asansör','Elektrik','Su / Tesisat','Isıtma / Doğalgaz','İnternet / Uydu'] },
+    { grup: 'Teknik',     items: ['Asansör','Elektrik','Su / Tesisat','Isıtma / Doğalgaz','İnternet / Uydu'] },
     { grup: 'Ortak Alan', items: ['Temizlik','Bahçe / Peyzaj','Otopark','Güvenlik','Aydınlatma'] },
-    { grup: 'Diğer', items: ['Gürültü Şikayeti','Öneri','Diğer'] },
+    { grup: 'Diğer',      items: ['Gürültü Şikayeti','Öneri','Diğer'] },
   ]
 
   useEffect(() => {
@@ -220,17 +217,15 @@ function ArizaBildir({ daireId, kullaniciId }: { daireId: number, kullaniciId: s
     setGonderiliyor(true)
     setMesaj(null)
 
-    const { error } = await supabase
-      .from('ariza_talepler')
-      .insert({
-        kullanici_id: kullaniciId,
-        daire_id: daireId,
-        kategori: form.kategori,
-        baslik: form.baslik,
-        aciklama: form.aciklama,
-        oncelik: form.oncelik,
-        durum: 'acik'
-      })
+    const { error } = await supabase.from('ariza_talepler').insert({
+      kullanici_id: kullaniciId,
+      daire_id: daireId,
+      kategori: form.kategori,
+      baslik: form.baslik,
+      aciklama: form.aciklama,
+      oncelik: form.oncelik,
+      durum: 'acik'
+    })
 
     if (error) {
       setMesaj({ tip: 'hata', metin: 'Gönderilemedi: ' + error.message })
@@ -238,8 +233,7 @@ function ArizaBildir({ daireId, kullaniciId }: { daireId: number, kullaniciId: s
       setMesaj({ tip: 'basari', metin: 'Bildiriminiz yöneticiye iletildi.' })
       setForm({ kategori: '', baslik: '', aciklama: '', oncelik: 'normal' })
       const { data } = await supabase
-        .from('ariza_talepler')
-        .select('*')
+        .from('ariza_talepler').select('*')
         .eq('kullanici_id', kullaniciId)
         .order('olusturma', { ascending: false })
       setTalepler(data || [])
@@ -248,42 +242,24 @@ function ArizaBildir({ daireId, kullaniciId }: { daireId: number, kullaniciId: s
   }
 
   const durumRenk: any = {
-    acik:        { bg: '#fef3c7', renk: '#92400e', etiket: '🔓 Açık' },
-    islemde:     { bg: '#dbeafe', renk: '#1e40af', etiket: '⚙️ İşlemde' },
-    tamamlandi:  { bg: '#dcfce7', renk: '#166534', etiket: '✅ Tamamlandı' },
-    iptal:       { bg: '#f3f4f6', renk: '#6b7280', etiket: '❌ İptal' },
-  }
-
-  const oncelikRenk: any = {
-    yuksek: { bg: '#fee2e2', renk: '#991b1b' },
-    normal: { bg: '#dbeafe', renk: '#1e40af' },
-    dusuk:  { bg: '#f3f4f6', renk: '#6b7280' },
+    acik:       { bg: '#fef3c7', renk: '#92400e', etiket: '🔓 Açık' },
+    islemde:    { bg: '#dbeafe', renk: '#1e40af', etiket: '⚙️ İşlemde' },
+    tamamlandi: { bg: '#dcfce7', renk: '#166534', etiket: '✅ Tamamlandı' },
+    iptal:      { bg: '#f3f4f6', renk: '#6b7280', etiket: '❌ İptal' },
   }
 
   if (yukleniyor) return (
-    <div style={{ padding: '40px', textAlign: 'center', color: '#6b7280' }}>
-      Yükleniyor...
-    </div>
+    <div style={{ padding: '40px', textAlign: 'center', color: '#6b7280' }}>Yükleniyor...</div>
   )
 
   return (
     <div>
       <h2 style={{ color: '#1a3c5e', marginBottom: '20px' }}>🔧 Arıza / Talep Bildir</h2>
+      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '20px', alignItems: 'flex-start' }}>
 
-      <div style={{
-        display: 'grid', gridTemplateColumns: '1fr 1fr',
-        gap: '20px', alignItems: 'flex-start'
-      }}>
         {/* Form */}
-        <div style={{
-          background: '#fff', borderRadius: '12px',
-          boxShadow: '0 2px 8px rgba(0,0,0,.06)',
-          border: '1px solid #e5e7eb', overflow: 'hidden'
-        }}>
-          <div style={{
-            background: '#d97706', color: '#fff',
-            padding: '12px 20px', fontWeight: '700'
-          }}>
+        <div style={{ background: '#fff', borderRadius: '12px', boxShadow: '0 2px 8px rgba(0,0,0,.06)', border: '1px solid #e5e7eb', overflow: 'hidden' }}>
+          <div style={{ background: '#d97706', color: '#fff', padding: '12px 20px', fontWeight: '700' }}>
             🔧 Yeni Arıza / Talep Bildir
           </div>
           <div style={{ padding: '20px' }}>
@@ -292,104 +268,58 @@ function ArizaBildir({ daireId, kullaniciId }: { daireId: number, kullaniciId: s
                 background: mesaj.tip === 'basari' ? '#dcfce7' : '#fee2e2',
                 color: mesaj.tip === 'basari' ? '#166534' : '#991b1b',
                 border: `1px solid ${mesaj.tip === 'basari' ? '#86efac' : '#fca5a5'}`,
-                borderRadius: '8px', padding: '12px 16px',
-                marginBottom: '16px', fontSize: '.85rem', fontWeight: '600'
-              }}>
-                {mesaj.metin}
-              </div>
+                borderRadius: '8px', padding: '12px 16px', marginBottom: '16px', fontSize: '.85rem', fontWeight: '600'
+              }}>{mesaj.metin}</div>
             )}
-
             <form onSubmit={gonder}>
               <div style={{ marginBottom: '14px' }}>
-                <label style={{
-                  display: 'block', fontWeight: '700',
-                  fontSize: '.82rem', color: '#374151', marginBottom: '6px'
-                }}>Kategori</label>
-                <select value={form.kategori}
-                  onChange={e => setForm(f => ({ ...f, kategori: e.target.value }))}
-                  required
-                  style={{
-                    width: '100%', padding: '9px 12px', borderRadius: '8px',
-                    border: '1px solid #d1d5db', fontSize: '.85rem'
-                  }}>
+                <label style={{ display: 'block', fontWeight: '700', fontSize: '.82rem', color: '#374151', marginBottom: '6px' }}>Kategori</label>
+                <select value={form.kategori} onChange={e => setForm(f => ({ ...f, kategori: e.target.value }))} required
+                  style={{ width: '100%', padding: '9px 12px', borderRadius: '8px', border: '1px solid #d1d5db', fontSize: '.85rem' }}>
                   <option value="">-- Seçin --</option>
                   {kategoriler.map(g => (
                     <optgroup key={g.grup} label={g.grup}>
-                      {g.items.map(item => (
-                        <option key={item} value={item}>{item}</option>
-                      ))}
+                      {g.items.map(item => <option key={item} value={item}>{item}</option>)}
                     </optgroup>
                   ))}
                 </select>
               </div>
-
               <div style={{ marginBottom: '14px' }}>
-                <label style={{
-                  display: 'block', fontWeight: '700',
-                  fontSize: '.82rem', color: '#374151', marginBottom: '6px'
-                }}>Başlık</label>
-                <input type="text" required maxLength={150}
-                  value={form.baslik}
+                <label style={{ display: 'block', fontWeight: '700', fontSize: '.82rem', color: '#374151', marginBottom: '6px' }}>Başlık</label>
+                <input type="text" required maxLength={150} value={form.baslik}
                   onChange={e => setForm(f => ({ ...f, baslik: e.target.value }))}
                   placeholder="Kısaca özetleyin..."
-                  style={{
-                    width: '100%', padding: '9px 12px', borderRadius: '8px',
-                    border: '1px solid #d1d5db', fontSize: '.85rem',
-                    boxSizing: 'border-box'
-                  }} />
+                  style={{ width: '100%', padding: '9px 12px', borderRadius: '8px', border: '1px solid #d1d5db', fontSize: '.85rem', boxSizing: 'border-box' }} />
               </div>
-
               <div style={{ marginBottom: '14px' }}>
-                <label style={{
-                  display: 'block', fontWeight: '700',
-                  fontSize: '.82rem', color: '#374151', marginBottom: '6px'
-                }}>Detaylı Açıklama</label>
-                <textarea rows={4} required
-                  value={form.aciklama}
+                <label style={{ display: 'block', fontWeight: '700', fontSize: '.82rem', color: '#374151', marginBottom: '6px' }}>Detaylı Açıklama</label>
+                <textarea rows={4} required value={form.aciklama}
                   onChange={e => setForm(f => ({ ...f, aciklama: e.target.value }))}
                   placeholder="Sorunu detaylıca açıklayın..."
-                  style={{
-                    width: '100%', padding: '9px 12px', borderRadius: '8px',
-                    border: '1px solid #d1d5db', fontSize: '.85rem',
-                    boxSizing: 'border-box', resize: 'vertical'
-                  }} />
+                  style={{ width: '100%', padding: '9px 12px', borderRadius: '8px', border: '1px solid #d1d5db', fontSize: '.85rem', boxSizing: 'border-box', resize: 'vertical' }} />
               </div>
-
               <div style={{ marginBottom: '20px' }}>
-                <label style={{
-                  display: 'block', fontWeight: '700',
-                  fontSize: '.82rem', color: '#374151', marginBottom: '6px'
-                }}>Öncelik</label>
+                <label style={{ display: 'block', fontWeight: '700', fontSize: '.82rem', color: '#374151', marginBottom: '6px' }}>Öncelik</label>
                 <div style={{ display: 'flex', gap: '8px' }}>
                   {[
-                    { value: 'dusuk',  label: '🟢 Düşük' },
+                    { value: 'dusuk', label: '🟢 Düşük' },
                     { value: 'normal', label: '🔵 Normal' },
                     { value: 'yuksek', label: '🔴 Yüksek' },
                   ].map(o => (
                     <button key={o.value} type="button"
                       onClick={() => setForm(f => ({ ...f, oncelik: o.value }))}
                       style={{
-                        flex: 1, padding: '8px',
-                        borderRadius: '8px', cursor: 'pointer',
+                        flex: 1, padding: '8px', borderRadius: '8px', cursor: 'pointer',
                         fontSize: '.8rem', fontWeight: '700',
-                        border: form.oncelik === o.value
-                          ? '2px solid #1a3c5e' : '1px solid #d1d5db',
+                        border: form.oncelik === o.value ? '2px solid #1a3c5e' : '1px solid #d1d5db',
                         background: form.oncelik === o.value ? '#eff6ff' : '#fff',
                         color: form.oncelik === o.value ? '#1a3c5e' : '#6b7280'
-                      }}>
-                      {o.label}
-                    </button>
+                      }}>{o.label}</button>
                   ))}
                 </div>
               </div>
-
               <button type="submit" disabled={gonderiliyor}
-                style={{
-                  width: '100%', padding: '11px',
-                  background: gonderiliyor ? '#9ca3af' : '#d97706',
-                  color: '#fff', border: 'none', borderRadius: '10px',
-                  fontSize: '.9rem', fontWeight: '700', cursor: 'pointer'
-                }}>
+                style={{ width: '100%', padding: '11px', background: gonderiliyor ? '#9ca3af' : '#d97706', color: '#fff', border: 'none', borderRadius: '10px', fontSize: '.9rem', fontWeight: '700', cursor: 'pointer' }}>
                 {gonderiliyor ? 'Gönderiliyor...' : '🔧 Bildirimi Gönder'}
               </button>
             </form>
@@ -397,15 +327,8 @@ function ArizaBildir({ daireId, kullaniciId }: { daireId: number, kullaniciId: s
         </div>
 
         {/* Talepler */}
-        <div style={{
-          background: '#fff', borderRadius: '12px',
-          boxShadow: '0 2px 8px rgba(0,0,0,.06)',
-          border: '1px solid #e5e7eb', overflow: 'hidden'
-        }}>
-          <div style={{
-            background: '#374151', color: '#fff',
-            padding: '12px 20px', fontWeight: '700'
-          }}>
+        <div style={{ background: '#fff', borderRadius: '12px', boxShadow: '0 2px 8px rgba(0,0,0,.06)', border: '1px solid #e5e7eb', overflow: 'hidden' }}>
+          <div style={{ background: '#374151', color: '#fff', padding: '12px 20px', fontWeight: '700' }}>
             📋 Taleplerim
           </div>
           {talepler.length === 0 ? (
@@ -414,46 +337,20 @@ function ArizaBildir({ daireId, kullaniciId }: { daireId: number, kullaniciId: s
             </div>
           ) : talepler.map((t, i) => {
             const d = durumRenk[t.durum] || durumRenk.acik
-            const o = oncelikRenk[t.oncelik] || oncelikRenk.normal
             return (
-              <div key={t.id} style={{
-                padding: '14px 20px',
-                borderBottom: i < talepler.length - 1 ? '1px solid #f3f4f6' : 'none'
-              }}>
-                <div style={{
-                  display: 'flex', justifyContent: 'space-between',
-                  alignItems: 'flex-start', gap: '8px', marginBottom: '6px'
-                }}>
-                  <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap' }}>
-                    <span style={{
-                      background: '#f3f4f6', color: '#374151',
-                      padding: '1px 8px', borderRadius: '20px',
-                      fontSize: '.72rem', fontWeight: '700'
-                    }}>{t.kategori}</span>
-                    <span style={{
-                      background: o.bg, color: o.renk,
-                      padding: '1px 8px', borderRadius: '20px',
-                      fontSize: '.72rem', fontWeight: '700'
-                    }}>{t.oncelik}</span>
-                  </div>
-                  <span style={{
-                    background: d.bg, color: d.renk,
-                    padding: '1px 8px', borderRadius: '20px',
-                    fontSize: '.72rem', fontWeight: '700', flexShrink: 0
-                  }}>{d.etiket}</span>
+              <div key={t.id} style={{ padding: '14px 20px', borderBottom: i < talepler.length - 1 ? '1px solid #f3f4f6' : 'none' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: '8px', marginBottom: '6px' }}>
+                  <span style={{ background: '#f3f4f6', color: '#374151', padding: '1px 8px', borderRadius: '20px', fontSize: '.72rem', fontWeight: '700' }}>
+                    {t.kategori}
+                  </span>
+                  <span style={{ background: d.bg, color: d.renk, padding: '1px 8px', borderRadius: '20px', fontSize: '.72rem', fontWeight: '700', flexShrink: 0 }}>
+                    {d.etiket}
+                  </span>
                 </div>
-                <div style={{ fontWeight: '700', color: '#374151', fontSize: '.85rem' }}>
-                  {t.baslik}
-                </div>
-                <div style={{ color: '#6b7280', fontSize: '.78rem', marginTop: '2px' }}>
-                  {t.aciklama}
-                </div>
+                <div style={{ fontWeight: '700', color: '#374151', fontSize: '.85rem' }}>{t.baslik}</div>
+                <div style={{ color: '#6b7280', fontSize: '.78rem', marginTop: '2px' }}>{t.aciklama}</div>
                 {t.yonetici_notu && (
-                  <div style={{
-                    background: '#f0fdf4', border: '1px solid #86efac',
-                    borderRadius: '6px', padding: '8px 12px', marginTop: '8px',
-                    fontSize: '.78rem', color: '#166534'
-                  }}>
+                  <div style={{ background: '#f0fdf4', border: '1px solid #86efac', borderRadius: '6px', padding: '8px 12px', marginTop: '8px', fontSize: '.78rem', color: '#166534' }}>
                     <strong>Yönetici Notu:</strong> {t.yonetici_notu}
                   </div>
                 )}
@@ -1129,17 +1026,20 @@ export default function SakinPanel() {
           {aktifSayfa === 'odeme_bildir' && (
             <OdemeBildir daireId={daire?.id} />
           )}
-		  
-		  {/* ARIZA BİLDİR */}
+
+          {/* ARIZA BİLDİR */}
           {aktifSayfa === 'ariza_bildir' && (
             <ArizaBildir daireId={daire?.id} kullaniciId={kullanici?.id} />
           )}
 
-		  {aktifSayfa !== 'borclarim' &&
+          {/* YAKINDA */}
+          {aktifSayfa !== 'borclarim' &&
            aktifSayfa !== 'odeme_gecmisi' &&
            aktifSayfa !== 'odeme_bildir' &&
            aktifSayfa !== 'ariza_bildir' && (
-            <div style={{ textAlign: 'center', padding: '60px 20px', color: '#6b7280' }}>
+            <div style={{
+              textAlign: 'center', padding: '60px 20px', color: '#6b7280'
+            }}>
               <div style={{ fontSize: '3rem', marginBottom: '16px' }}>🚧</div>
               <h3 style={{ color: '#1a3c5e' }}>Yakında</h3>
               <p>Bu bölüm geliştiriliyor...</p>
