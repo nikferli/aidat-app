@@ -180,6 +180,290 @@ function OdemeGecmisi({ daireId }: { daireId: number }) {
     </div>
   )
 }
+
+// ── Ekstre Component ──
+function Ekstre({ daireId, kullanici }: { daireId: number, kullanici: any }) {
+  const [hareketler, setHareketler] = useState<any[]>([])
+  const [yukleniyor, setYukleniyor] = useState(true)
+  const [filtre, setFiltre] = useState({
+    yil_bas: new Date().getFullYear(), ay_bas: 1,
+    yil_bitis: new Date().getFullYear(), ay_bitis: new Date().getMonth() + 1
+  })
+
+  const yukle = async () => {
+    if (!daireId) return
+    setYukleniyor(true)
+
+    const { data: thData } = await supabase
+      .from('tahakkuklar')
+      .select('*, aidat_turleri(tur_adi)')
+      .eq('daire_id', daireId)
+      .gte('donem_yil', filtre.yil_bas)
+      .lte('donem_yil', filtre.yil_bitis)
+      .order('donem_yil').order('donem_ay')
+
+    if (!thData || thData.length === 0) {
+      setHareketler([])
+      setYukleniyor(false)
+      return
+    }
+
+    // Dönem filtresi
+    const filtreli = thData.filter((t: any) => {
+      const donem = t.donem_yil * 100 + t.donem_ay
+      const bas   = filtre.yil_bas * 100 + filtre.ay_bas
+      const bitis = filtre.yil_bitis * 100 + filtre.ay_bitis
+      return donem >= bas && donem <= bitis
+    })
+
+    // Ödemeleri al
+    const ids = filtreli.map((t: any) => t.id)
+    const { data: odemeData } = await supabase
+      .from('odemeler').select('tahakkuk_id, tutar').in('tahakkuk_id', ids)
+
+    const odemeMap: any = {}
+    odemeData?.forEach((o: any) => {
+      if (!odemeMap[o.tahakkuk_id]) odemeMap[o.tahakkuk_id] = 0
+      odemeMap[o.tahakkuk_id] += Number(o.tutar)
+    })
+
+    const zengin = filtreli.map((t: any) => ({
+      ...t,
+      odenen: odemeMap[t.id] || 0,
+      kalan: Math.max(0, Number(t.tutar) - (odemeMap[t.id] || 0))
+    }))
+
+    setHareketler(zengin)
+    setYukleniyor(false)
+  }
+
+  useEffect(() => { yukle() }, [daireId])
+
+  const toplamTahakkuk = hareketler.reduce((acc, h) => acc + Number(h.tutar), 0)
+  const toplamOdenen   = hareketler.reduce((acc, h) => acc + h.odenen, 0)
+  const toplamKalan    = hareketler.reduce((acc, h) => acc + h.kalan, 0)
+  const tahsilatOrani  = toplamTahakkuk > 0 ? Math.round(toplamOdenen / toplamTahakkuk * 100) : 100
+
+  const yazdir = () => {
+    const eksNo = 'EKS-' + Date.now()
+    const tarih = new Date().toLocaleDateString('tr-TR')
+    const satirlar = hareketler.map(h => {
+      const durumText = h.durum === 'odendi' ? '✓ Ödendi' : h.durum === 'gecikti' ? '⚠ Gecikti' : h.odenen > 0 ? '◑ Kısmi' : '○ Bekliyor'
+      return `<tr>
+        <td>${ayAdi(h.donem_ay)} ${h.donem_yil}</td>
+        <td>${h.aidat_turleri?.tur_adi}</td>
+        <td>${h.son_odeme_tarihi ? new Date(h.son_odeme_tarihi).toLocaleDateString('tr-TR') : '—'}</td>
+        <td style="text-align:right">${Number(h.tutar).toLocaleString('tr-TR',{minimumFractionDigits:2})} ₺</td>
+        <td style="text-align:right;color:${h.odenen>0?'#16a34a':'#6b7280'}">${h.odenen > 0 ? Number(h.odenen).toLocaleString('tr-TR',{minimumFractionDigits:2})+' ₺' : '—'}</td>
+        <td style="text-align:right;color:${h.kalan>0?'#dc2626':'#6b7280'}">${h.kalan > 0 ? Number(h.kalan).toLocaleString('tr-TR',{minimumFractionDigits:2})+' ₺' : '—'}</td>
+        <td>${durumText}</td>
+      </tr>`
+    }).join('')
+
+    const html = `<!DOCTYPE html><html lang="tr"><head><meta charset="UTF-8">
+    <title>Aidat Ekstresi</title>
+    <style>
+      body{font-family:'Segoe UI',sans-serif;font-size:12px;color:#1f2937;margin:0;padding:0}
+      .wrap{max-width:780px;margin:40px auto}
+      .header{background:linear-gradient(135deg,#1a3c5e,#2e7d9f);color:#fff;padding:24px 32px;border-radius:12px 12px 0 0;display:flex;justify-content:space-between}
+      .header h2{margin:0;font-size:1.1rem}.header .meta{text-align:right;font-size:.75rem;opacity:.85}
+      .info{display:grid;grid-template-columns:1fr 1fr;gap:0;background:#f8fafc;border:1px solid #e5e7eb;border-top:none;padding:16px 32px}
+      .info-item .label{font-size:.7rem;color:#6b7280;font-weight:600;text-transform:uppercase}
+      .info-item .value{font-weight:700;font-size:.9rem}
+      .donem{background:#1a3c5e;color:#fff;text-align:center;padding:8px;font-weight:700;font-size:.85rem}
+      table{width:100%;border-collapse:collapse}
+      th{background:#f4f6fb;padding:9px 12px;font-size:.72rem;text-transform:uppercase;color:#6b7280;border-bottom:2px solid #e5e7eb;text-align:left}
+      td{padding:8px 12px;border-bottom:1px solid #f3f4f6;font-size:.85rem}
+      tr:nth-child(even) td{background:#f9fafb}
+      .ozet{background:#f8fafc;border:1px solid #e5e7eb;border-top:none;padding:16px 32px;display:flex;justify-content:flex-end}
+      .ozet table{width:280px}.ozet td{padding:4px 8px;font-size:.88rem}
+      .footer{border:1px solid #e5e7eb;border-top:none;border-radius:0 0 12px 12px;padding:16px 32px;display:flex;justify-content:space-between;align-items:flex-end}
+      .imza{border-top:1px solid #374151;width:160px;text-align:center;padding-top:4px;font-size:.72rem;color:#6b7280;margin-top:40px}
+      .note{font-size:.72rem;color:#9ca3af;text-align:right}
+      @media print{@page{size:A4;margin:10mm 12mm}.no-print{display:none}}
+    </style></head><body>
+    <div class="no-print" style="position:fixed;top:12px;right:16px;display:flex;gap:8px">
+      <button onclick="window.close()" style="padding:7px 16px;background:#e5e7eb;border:none;border-radius:7px;cursor:pointer;font-weight:700">← Geri</button>
+      <button onclick="window.print()" style="padding:7px 16px;background:#1a3c5e;color:#fff;border:none;border-radius:7px;cursor:pointer;font-weight:700">🖨️ Yazdır / PDF</button>
+    </div>
+    <div class="wrap">
+      <div class="header">
+        <div><h2>🏢 Aidat Yönetim Sistemi</h2><small>Resmi Aidat Ekstresi</small></div>
+        <div class="meta"><strong>Ekstre No: ${eksNo}</strong><br>Düzenleme: ${tarih}</div>
+      </div>
+      <div class="info">
+        <div class="info-item"><div class="label">Ad Soyad</div><div class="value">${kullanici?.ad_soyad}</div></div>
+        <div class="info-item"><div class="label">Telefon</div><div class="value">${kullanici?.telefon || '—'}</div></div>
+      </div>
+      <div class="donem">EKSTRE DÖNEMİ: ${ayAdi(filtre.ay_bas)} ${filtre.yil_bas} — ${ayAdi(filtre.ay_bitis)} ${filtre.yil_bitis}</div>
+      <table>
+        <thead><tr><th>Dönem</th><th>Aidat Türü</th><th>Son Ödeme</th><th style="text-align:right">Tahakkuk</th><th style="text-align:right">Ödenen</th><th style="text-align:right">Kalan</th><th>Durum</th></tr></thead>
+        <tbody>${satirlar}</tbody>
+      </table>
+      <div class="ozet"><table>
+        <tr><td>Toplam Tahakkuk:</td><td style="text-align:right;font-weight:700">${toplamTahakkuk.toLocaleString('tr-TR',{minimumFractionDigits:2})} ₺</td></tr>
+        <tr><td>Toplam Ödenen:</td><td style="text-align:right;font-weight:700;color:#16a34a">${toplamOdenen.toLocaleString('tr-TR',{minimumFractionDigits:2})} ₺</td></tr>
+        <tr><td>Kalan Borç:</td><td style="text-align:right;font-weight:700;color:#dc2626">${toplamKalan.toLocaleString('tr-TR',{minimumFractionDigits:2})} ₺</td></tr>
+        <tr style="border-top:2px solid #1a3c5e"><td><strong>Tahsilat Oranı:</strong></td><td style="text-align:right;font-weight:700">%${tahsilatOrani}</td></tr>
+      </table></div>
+      <div class="footer">
+        <div class="imza">Yönetici İmzası / Kaşe</div>
+        <div class="note">Aidat Yönetim Sistemi<br>Ekstre No: ${eksNo}<br>${tarih}</div>
+      </div>
+    </div></body></html>`
+
+    const w = window.open('', '_blank')
+    if (w) { w.document.write(html); w.document.close() }
+  }
+
+  if (yukleniyor) return (
+    <div style={{ padding: '40px', textAlign: 'center', color: '#6b7280' }}>Yükleniyor...</div>
+  )
+
+  return (
+    <div>
+      <h2 style={{ color: '#1a3c5e', marginBottom: '20px' }}>📄 Aidat Ekstresi</h2>
+
+      {/* Dönem Filtresi */}
+      <div style={{ background: '#fff', borderRadius: '12px', padding: '16px 20px', marginBottom: '20px', boxShadow: '0 2px 8px rgba(0,0,0,.06)', border: '1px solid #e5e7eb' }}>
+        <div style={{ fontWeight: '700', fontSize: '.85rem', color: '#374151', marginBottom: '12px' }}>
+          📅 Dönem Seçin
+        </div>
+        <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap', alignItems: 'flex-end' }}>
+          {[
+            { label: 'Başlangıç Yılı', key: 'yil_bas', type: 'yil' },
+            { label: 'Başlangıç Ayı', key: 'ay_bas', type: 'ay' },
+            { label: 'Bitiş Yılı', key: 'yil_bitis', type: 'yil' },
+            { label: 'Bitiş Ayı', key: 'ay_bitis', type: 'ay' },
+          ].map(f => (
+            <div key={f.key} style={{ flex: 1, minWidth: '120px' }}>
+              <label style={{ display: 'block', fontWeight: '600', fontSize: '.78rem', color: '#6b7280', marginBottom: '4px' }}>{f.label}</label>
+              {f.type === 'yil' ? (
+                <select value={(filtre as any)[f.key]}
+                  onChange={e => setFiltre(prev => ({ ...prev, [f.key]: parseInt(e.target.value) }))}
+                  style={{ width: '100%', padding: '7px 10px', borderRadius: '8px', border: '1px solid #d1d5db', fontSize: '.85rem' }}>
+                  {[2024,2025,2026,2027].map(y => <option key={y} value={y}>{y}</option>)}
+                </select>
+              ) : (
+                <select value={(filtre as any)[f.key]}
+                  onChange={e => setFiltre(prev => ({ ...prev, [f.key]: parseInt(e.target.value) }))}
+                  style={{ width: '100%', padding: '7px 10px', borderRadius: '8px', border: '1px solid #d1d5db', fontSize: '.85rem' }}>
+                  {Array.from({length:12},(_,i) => i+1).map(m => <option key={m} value={m}>{ayAdi(m)}</option>)}
+                </select>
+              )}
+            </div>
+          ))}
+          <button onClick={yukle}
+            style={{ padding: '9px 20px', background: '#1a3c5e', color: '#fff', border: 'none', borderRadius: '8px', cursor: 'pointer', fontWeight: '700', fontSize: '.85rem', flexShrink: 0 }}>
+            🔍 Görüntüle
+          </button>
+        </div>
+
+        {/* Hızlı Seçimler */}
+        <div style={{ display: 'flex', gap: '8px', marginTop: '10px', flexWrap: 'wrap' }}>
+          {[
+            { label: 'Bu Yıl', yil_bas: new Date().getFullYear(), ay_bas: 1, yil_bitis: new Date().getFullYear(), ay_bitis: 12 },
+            { label: 'Bu Ay', yil_bas: new Date().getFullYear(), ay_bas: new Date().getMonth()+1, yil_bitis: new Date().getFullYear(), ay_bitis: new Date().getMonth()+1 },
+            { label: 'Geçen Yıl', yil_bas: new Date().getFullYear()-1, ay_bas: 1, yil_bitis: new Date().getFullYear()-1, ay_bitis: 12 },
+          ].map(s => (
+            <button key={s.label}
+              onClick={() => { setFiltre(s); setTimeout(yukle, 100) }}
+              style={{ padding: '5px 12px', background: '#f3f4f6', color: '#374151', border: '1px solid #d1d5db', borderRadius: '20px', cursor: 'pointer', fontSize: '.78rem', fontWeight: '600' }}>
+              {s.label}
+            </button>
+          ))}
+        </div>
+      </div>
+
+      {/* Özet Kartlar */}
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '12px', marginBottom: '20px' }}>
+        {[
+          { label: 'Toplam Tahakkuk', deger: toplamTahakkuk, renk: '#1a3c5e' },
+          { label: 'Toplam Ödenen',   deger: toplamOdenen,   renk: '#16a34a' },
+          { label: 'Kalan Borç',      deger: toplamKalan,    renk: toplamKalan > 0 ? '#dc2626' : '#16a34a' },
+          { label: 'Tahsilat Oranı',  deger: null,           renk: tahsilatOrani >= 90 ? '#16a34a' : '#d97706' },
+        ].map(k => (
+          <div key={k.label} style={{ background: '#fff', borderRadius: '12px', padding: '16px', boxShadow: '0 2px 8px rgba(0,0,0,.06)', border: '1px solid #e5e7eb', textAlign: 'center' }}>
+            <div style={{ color: '#6b7280', fontSize: '.72rem', fontWeight: '700', textTransform: 'uppercase', marginBottom: '4px' }}>{k.label}</div>
+            <div style={{ fontSize: '1.1rem', fontWeight: '800', color: k.renk }}>
+              {k.deger !== null ? Number(k.deger).toLocaleString('tr-TR', { minimumFractionDigits: 2 }) + ' ₺' : `%${tahsilatOrani}`}
+            </div>
+          </div>
+        ))}
+      </div>
+
+      {/* Tablo */}
+      <div style={{ background: '#fff', borderRadius: '12px', boxShadow: '0 2px 8px rgba(0,0,0,.06)', border: '1px solid #e5e7eb', overflow: 'hidden' }}>
+        <div style={{ background: '#1a3c5e', color: '#fff', padding: '12px 20px', fontWeight: '700', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+          <span>📄 {ayAdi(filtre.ay_bas)} {filtre.yil_bas} — {ayAdi(filtre.ay_bitis)} {filtre.yil_bitis} Ekstresi</span>
+          {hareketler.length > 0 && (
+            <button onClick={yazdir}
+              style={{ background: 'rgba(255,255,255,.2)', border: '1px solid rgba(255,255,255,.4)', color: '#fff', padding: '5px 12px', borderRadius: '8px', cursor: 'pointer', fontSize: '.8rem', fontWeight: '700' }}>
+              🖨️ Yazdır / PDF
+            </button>
+          )}
+        </div>
+
+        {hareketler.length === 0 ? (
+          <div style={{ padding: '40px', textAlign: 'center', color: '#9ca3af' }}>
+            Bu dönemde tahakkuk kaydı bulunamadı.
+          </div>
+        ) : (
+          <>
+            <div style={{ overflowX: 'auto' }}>
+              <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '.85rem' }}>
+                <thead>
+                  <tr style={{ background: '#f8fafc' }}>
+                    {['Dönem','Aidat Türü','Son Ödeme','Tahakkuk','Ödenen','Kalan','Durum'].map(h => (
+                      <th key={h} style={{ padding: '10px 14px', textAlign: h === 'Dönem' || h === 'Aidat Türü' || h === 'Son Ödeme' || h === 'Durum' ? 'left' : 'right', color: '#6b7280', fontWeight: '700', fontSize: '.75rem', textTransform: 'uppercase', borderBottom: '2px solid #e5e7eb' }}>
+                        {h}
+                      </th>
+                    ))}
+                  </tr>
+                </thead>
+                <tbody>
+                  {hareketler.map((h, i) => {
+                    const durumText = h.durum === 'odendi' ? '✓ Ödendi' : h.durum === 'gecikti' ? '⚠ Gecikti' : h.odenen > 0 ? '◑ Kısmi' : '○ Bekliyor'
+                    const durumRenk = h.durum === 'odendi' ? '#dcfce7|#166534' : h.durum === 'gecikti' ? '#fee2e2|#991b1b' : h.odenen > 0 ? '#fef3c7|#92400e' : '#f3f4f6|#6b7280'
+                    const [bg, fg] = durumRenk.split('|')
+                    return (
+                      <tr key={h.id} style={{ background: i % 2 === 0 ? '#fff' : '#f9fafb' }}>
+                        <td style={{ padding: '10px 14px', fontWeight: '600' }}>{ayAdi(h.donem_ay)} {h.donem_yil}</td>
+                        <td style={{ padding: '10px 14px' }}>{h.aidat_turleri?.tur_adi}</td>
+                        <td style={{ padding: '10px 14px', color: h.son_odeme_tarihi && new Date(h.son_odeme_tarihi) < new Date() && h.durum !== 'odendi' ? '#dc2626' : '#6b7280' }}>
+                          {h.son_odeme_tarihi ? new Date(h.son_odeme_tarihi).toLocaleDateString('tr-TR') : '—'}
+                        </td>
+                        <td style={{ padding: '10px 14px', textAlign: 'right' }}>{Number(h.tutar).toLocaleString('tr-TR', { minimumFractionDigits: 2 })} ₺</td>
+                        <td style={{ padding: '10px 14px', textAlign: 'right', color: h.odenen > 0 ? '#16a34a' : '#6b7280' }}>
+                          {h.odenen > 0 ? Number(h.odenen).toLocaleString('tr-TR', { minimumFractionDigits: 2 }) + ' ₺' : '—'}
+                        </td>
+                        <td style={{ padding: '10px 14px', textAlign: 'right', color: h.kalan > 0 ? '#dc2626' : '#6b7280', fontWeight: h.kalan > 0 ? '700' : '400' }}>
+                          {h.kalan > 0 ? Number(h.kalan).toLocaleString('tr-TR', { minimumFractionDigits: 2 }) + ' ₺' : '—'}
+                        </td>
+                        <td style={{ padding: '10px 14px' }}>
+                          <span style={{ background: bg, color: fg, padding: '2px 8px', borderRadius: '20px', fontSize: '.72rem', fontWeight: '700' }}>
+                            {durumText}
+                          </span>
+                        </td>
+                      </tr>
+                    )
+                  })}
+                  <tr style={{ background: '#f0f9ff', fontWeight: '800' }}>
+                    <td colSpan={3} style={{ padding: '10px 14px', textAlign: 'right', color: '#1a3c5e' }}>TOPLAM:</td>
+                    <td style={{ padding: '10px 14px', textAlign: 'right', color: '#1a3c5e' }}>{toplamTahakkuk.toLocaleString('tr-TR', { minimumFractionDigits: 2 })} ₺</td>
+                    <td style={{ padding: '10px 14px', textAlign: 'right', color: '#16a34a' }}>{toplamOdenen.toLocaleString('tr-TR', { minimumFractionDigits: 2 })} ₺</td>
+                    <td style={{ padding: '10px 14px', textAlign: 'right', color: toplamKalan > 0 ? '#dc2626' : '#16a34a' }}>{toplamKalan.toLocaleString('tr-TR', { minimumFractionDigits: 2 })} ₺</td>
+                    <td></td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+          </>
+        )}
+      </div>
+    </div>
+  )
+}
 // ── Profil Component ──
 function Profil({ kullanici, setKullanici }: { kullanici: any, setKullanici: any }) {
   const [form, setForm] = useState({
@@ -1056,6 +1340,7 @@ export default function SakinPanel() {
     { id: 'ariza_bildir', ikon: '🔧', etiket: 'Arıza Bildir' },
     { id: 'duyurular', ikon: '📢', etiket: 'Duyurular' },
 	{ id: 'profil', ikon: '👤', etiket: 'Profilim' },
+	{ id: 'ekstre', ikon: '📄', etiket: 'Ekstre' },
   ]
 
   return (
@@ -1296,6 +1581,10 @@ export default function SakinPanel() {
             <ArizaBildir daireId={daire?.id} kullaniciId={kullanici?.id} />
           )}
 		  
+		  {/* EKSTRE */}
+{aktifSayfa === 'ekstre' && (
+  <Ekstre daireId={daire?.id} kullanici={kullanici} />
+)}
 		  {/* PROFİL */}
 {aktifSayfa === 'profil' && (
   <Profil kullanici={kullanici} setKullanici={setKullanici} />
@@ -1305,14 +1594,14 @@ export default function SakinPanel() {
             <Duyurular />
           )}
 
-          {/* YAKINDA */}
-          {aktifSayfa !== 'borclarim' &&
-           aktifSayfa !== 'odeme_gecmisi' &&
-           aktifSayfa !== 'odeme_bildir' &&
-           aktifSayfa !== 'ariza_bildir' && 
-		   aktifSayfa !== 'profil' &&
-		   aktifSayfa !== 'duyurular' && (
-		   
+{aktifSayfa !== 'borclarim' &&
+ aktifSayfa !== 'odeme_gecmisi' &&
+ aktifSayfa !== 'odeme_bildir' &&
+ aktifSayfa !== 'ariza_bildir' &&
+ aktifSayfa !== 'ekstre' &&
+ aktifSayfa !== 'profil' &&
+ aktifSayfa !== 'duyurular' && (
+ 
             <div style={{
               textAlign: 'center', padding: '60px 20px', color: '#6b7280'
             }}>
