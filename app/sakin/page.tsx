@@ -180,6 +180,211 @@ function OdemeGecmisi({ daireId }: { daireId: number }) {
     </div>
   )
 }
+// ── Profil Component ──
+function Profil({ kullanici, setKullanici }: { kullanici: any, setKullanici: any }) {
+  const [form, setForm] = useState({
+    ad_soyad: kullanici?.ad_soyad || '',
+    telefon:  kullanici?.telefon  || '',
+  })
+  const [sifre, setSifre] = useState({
+    mevcut: '', yeni: '', yeni2: ''
+  })
+  const [mesaj, setMesaj]           = useState<any>(null)
+  const [yukleniyor, setYukleniyor] = useState(false)
+  const [istatistik, setIstatistik] = useState<any>(null)
+
+  useEffect(() => {
+    const yukle = async () => {
+      // Ödeme özeti
+      const { data: { session } } = await supabase.auth.getSession()
+      if (!session) return
+
+      const { data: daireData } = await supabase
+        .from('daireler').select('id')
+        .eq('kullanici_id', session.user.id).single()
+
+      if (daireData) {
+        const { data: tahakkuklar } = await supabase
+          .from('tahakkuklar').select('id, tutar, durum')
+          .eq('daire_id', daireData.id)
+
+        const ids = tahakkuklar?.map((t: any) => t.id) || []
+        let toplamOdenen = 0
+        let odemeSayisi = 0
+
+        if (ids.length > 0) {
+          const { data: odemeler } = await supabase
+            .from('odemeler').select('tutar').in('tahakkuk_id', ids)
+          toplamOdenen = odemeler?.reduce((acc, o) => acc + Number(o.tutar), 0) || 0
+          odemeSayisi  = odemeler?.length || 0
+        }
+
+        const toplamBorc = tahakkuklar
+          ?.filter((t: any) => t.durum !== 'odendi')
+          .reduce((acc: number, t: any) => acc + Number(t.tutar), 0) || 0
+
+        setIstatistik({ odemeSayisi, toplamOdenen, toplamBorc })
+      }
+    }
+    yukle()
+  }, [])
+
+  const kaydet = async (e: React.FormEvent) => {
+    e.preventDefault()
+    setYukleniyor(true)
+    setMesaj(null)
+
+    // Şifre kontrolü
+    if (sifre.yeni && sifre.yeni !== sifre.yeni2) {
+      setMesaj({ tip: 'hata', metin: 'Yeni şifreler eşleşmiyor.' })
+      setYukleniyor(false)
+      return
+    }
+    if (sifre.yeni && sifre.yeni.length < 6) {
+      setMesaj({ tip: 'hata', metin: 'Şifre en az 6 karakter olmalıdır.' })
+      setYukleniyor(false)
+      return
+    }
+
+    // Profil güncelle
+    const { error: profilHata } = await supabase
+      .from('profiller')
+      .update({ ad_soyad: form.ad_soyad, telefon: form.telefon })
+      .eq('id', kullanici.id)
+
+    if (profilHata) {
+      setMesaj({ tip: 'hata', metin: profilHata.message })
+      setYukleniyor(false)
+      return
+    }
+
+    // Şifre değiştir
+    if (sifre.yeni) {
+      const { error: sifreHata } = await supabase.auth.updateUser({
+        password: sifre.yeni
+      })
+      if (sifreHata) {
+        setMesaj({ tip: 'hata', metin: 'Şifre güncellenemedi: ' + sifreHata.message })
+        setYukleniyor(false)
+        return
+      }
+    }
+
+    setKullanici((k: any) => ({ ...k, ad_soyad: form.ad_soyad, telefon: form.telefon }))
+    setSifre({ mevcut: '', yeni: '', yeni2: '' })
+    setMesaj({ tip: 'basari', metin: 'Profiliniz başarıyla güncellendi.' })
+    setYukleniyor(false)
+  }
+
+  return (
+    <div>
+      <h2 style={{ color: '#1a3c5e', marginBottom: '20px' }}>👤 Profilim</h2>
+
+      <div style={{ display: 'grid', gridTemplateColumns: '1fr 2fr', gap: '20px', alignItems: 'flex-start' }}>
+
+        {/* Sol: Profil Kartı */}
+        <div style={{ background: '#fff', borderRadius: '12px', padding: '24px', boxShadow: '0 2px 8px rgba(0,0,0,.06)', border: '1px solid #e5e7eb', textAlign: 'center' }}>
+          {/* Avatar */}
+          <div style={{ width: '90px', height: '90px', borderRadius: '50%', background: '#1a3c5e', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 12px', fontSize: '2.2rem', color: '#fff', fontWeight: '800' }}>
+            {kullanici?.ad_soyad?.charAt(0)?.toUpperCase()}
+          </div>
+          <div style={{ fontWeight: '800', fontSize: '1.1rem', color: '#1a3c5e' }}>{kullanici?.ad_soyad}</div>
+          <div style={{ color: '#6b7280', fontSize: '.82rem', marginBottom: '16px' }}>{kullanici?.telefon || 'Telefon yok'}</div>
+
+          {istatistik && (
+            <>
+              <hr style={{ margin: '12px 0' }} />
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px' }}>
+                <div style={{ textAlign: 'center' }}>
+                  <div style={{ fontWeight: '800', fontSize: '1.2rem', color: '#16a34a' }}>{istatistik.odemeSayisi}</div>
+                  <div style={{ color: '#6b7280', fontSize: '.75rem' }}>Ödeme</div>
+                </div>
+                <div style={{ textAlign: 'center' }}>
+                  <div style={{ fontWeight: '800', fontSize: '1rem', color: istatistik.toplamBorc > 0 ? '#dc2626' : '#16a34a' }}>
+                    {Number(istatistik.toplamBorc).toLocaleString('tr-TR', { minimumFractionDigits: 0 })} ₺
+                  </div>
+                  <div style={{ color: '#6b7280', fontSize: '.75rem' }}>Borç</div>
+                </div>
+              </div>
+            </>
+          )}
+        </div>
+
+        {/* Sağ: Form */}
+        <div>
+          {mesaj && (
+            <div style={{
+              background: mesaj.tip === 'basari' ? '#dcfce7' : '#fee2e2',
+              color: mesaj.tip === 'basari' ? '#166534' : '#991b1b',
+              border: `1px solid ${mesaj.tip === 'basari' ? '#86efac' : '#fca5a5'}`,
+              borderRadius: '8px', padding: '12px 16px',
+              marginBottom: '16px', fontSize: '.85rem', fontWeight: '600'
+            }}>
+              {mesaj.metin}
+            </div>
+          )}
+
+          <form onSubmit={kaydet}>
+            {/* Kişisel Bilgiler */}
+            <div style={{ background: '#fff', borderRadius: '12px', boxShadow: '0 2px 8px rgba(0,0,0,.06)', border: '1px solid #e5e7eb', overflow: 'hidden', marginBottom: '16px' }}>
+              <div style={{ background: '#f8fafc', padding: '12px 20px', fontWeight: '700', fontSize: '.9rem', borderBottom: '1px solid #e5e7eb' }}>
+                👤 Kişisel Bilgiler
+              </div>
+              <div style={{ padding: '20px' }}>
+                <div style={{ marginBottom: '14px' }}>
+                  <label style={{ display: 'block', fontWeight: '700', fontSize: '.82rem', color: '#374151', marginBottom: '6px' }}>Ad Soyad</label>
+                  <input type="text" required value={form.ad_soyad}
+                    onChange={e => setForm(f => ({ ...f, ad_soyad: e.target.value }))}
+                    style={{ width: '100%', padding: '9px 12px', borderRadius: '8px', border: '1px solid #d1d5db', fontSize: '.85rem', boxSizing: 'border-box' }} />
+                </div>
+                <div>
+                  <label style={{ display: 'block', fontWeight: '700', fontSize: '.82rem', color: '#374151', marginBottom: '6px' }}>Telefon</label>
+                  <input type="text" value={form.telefon}
+                    onChange={e => setForm(f => ({ ...f, telefon: e.target.value }))}
+                    placeholder="0500..."
+                    style={{ width: '100%', padding: '9px 12px', borderRadius: '8px', border: '1px solid #d1d5db', fontSize: '.85rem', boxSizing: 'border-box' }} />
+                </div>
+              </div>
+            </div>
+
+            {/* Şifre Değiştir */}
+            <div style={{ background: '#fff', borderRadius: '12px', boxShadow: '0 2px 8px rgba(0,0,0,.06)', border: '1px solid #e5e7eb', overflow: 'hidden', marginBottom: '16px' }}>
+              <div style={{ background: '#f8fafc', padding: '12px 20px', fontWeight: '700', fontSize: '.9rem', borderBottom: '1px solid #e5e7eb' }}>
+                🔒 Şifre Değiştir <span style={{ color: '#9ca3af', fontWeight: '400', fontSize: '.8rem' }}>(boş bırakırsanız değişmez)</span>
+              </div>
+              <div style={{ padding: '20px' }}>
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
+                  <div>
+                    <label style={{ display: 'block', fontWeight: '700', fontSize: '.82rem', color: '#374151', marginBottom: '6px' }}>Yeni Şifre</label>
+                    <input type="password" value={sifre.yeni} minLength={6}
+                      onChange={e => setSifre(s => ({ ...s, yeni: e.target.value }))}
+                      placeholder="En az 6 karakter"
+                      style={{ width: '100%', padding: '9px 12px', borderRadius: '8px', border: '1px solid #d1d5db', fontSize: '.85rem', boxSizing: 'border-box' }} />
+                  </div>
+                  <div>
+                    <label style={{ display: 'block', fontWeight: '700', fontSize: '.82rem', color: '#374151', marginBottom: '6px' }}>Yeni Şifre (Tekrar)</label>
+                    <input type="password" value={sifre.yeni2}
+                      onChange={e => setSifre(s => ({ ...s, yeni2: e.target.value }))}
+                      placeholder="Tekrar girin"
+                      style={{ width: '100%', padding: '9px 12px', borderRadius: '8px', border: `1px solid ${sifre.yeni && sifre.yeni2 && sifre.yeni !== sifre.yeni2 ? '#fca5a5' : '#d1d5db'}`, fontSize: '.85rem', boxSizing: 'border-box' }} />
+                    {sifre.yeni && sifre.yeni2 && sifre.yeni !== sifre.yeni2 && (
+                      <div style={{ color: '#dc2626', fontSize: '.75rem', marginTop: '4px' }}>Şifreler eşleşmiyor</div>
+                    )}
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <button type="submit" disabled={yukleniyor}
+              style={{ padding: '11px 24px', background: yukleniyor ? '#9ca3af' : '#1a3c5e', color: '#fff', border: 'none', borderRadius: '10px', fontSize: '.9rem', fontWeight: '700', cursor: 'pointer' }}>
+              {yukleniyor ? 'Kaydediliyor...' : '💾 Değişiklikleri Kaydet'}
+            </button>
+          </form>
+        </div>
+      </div>
+    </div>
+  )
+}
 
 // ── Duyurular Component ──
 function Duyurular() {
@@ -850,6 +1055,7 @@ export default function SakinPanel() {
     { id: 'odeme_bildir', ikon: '✉️', etiket: 'Ödeme Bildir' },
     { id: 'ariza_bildir', ikon: '🔧', etiket: 'Arıza Bildir' },
     { id: 'duyurular', ikon: '📢', etiket: 'Duyurular' },
+	{ id: 'profil', ikon: '👤', etiket: 'Profilim' },
   ]
 
   return (
@@ -1090,6 +1296,10 @@ export default function SakinPanel() {
             <ArizaBildir daireId={daire?.id} kullaniciId={kullanici?.id} />
           )}
 		  
+		  {/* PROFİL */}
+{aktifSayfa === 'profil' && (
+  <Profil kullanici={kullanici} setKullanici={setKullanici} />
+)}
 		            {/* DUYURULAR */}
           {aktifSayfa === 'duyurular' && (
             <Duyurular />
@@ -1100,7 +1310,9 @@ export default function SakinPanel() {
            aktifSayfa !== 'odeme_gecmisi' &&
            aktifSayfa !== 'odeme_bildir' &&
            aktifSayfa !== 'ariza_bildir' && 
+		   aktifSayfa !== 'profil' &&
 		   aktifSayfa !== 'duyurular' && (
+		   
             <div style={{
               textAlign: 'center', padding: '60px 20px', color: '#6b7280'
             }}>
