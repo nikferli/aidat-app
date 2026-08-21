@@ -144,21 +144,41 @@ if (odemeData && odemeData.length > 0) {
     router.push('/giris')
   }
 
-  const bildirimOnayla = async (id: number, tahakkukId: number, tutar: number) => {
-    await supabase.from('odemeler').insert({
-      tahakkuk_id: tahakkukId,
-      odeme_tarihi: new Date().toISOString().split('T')[0],
-      tutar, odeme_yontemi: 'havale', aciklama: 'Sakin bildirimi onaylandı'
-    })
-    await supabase.from('odeme_bildirimleri').update({ durum: 'onaylandi' }).eq('id', id)
-    const { data } = await supabase
-      .from('odeme_bildirimleri')
-      .select('*, profiller(ad_soyad), tahakkuklar(donem_yil, donem_ay, aidat_turleri(tur_adi))')
-      .eq('durum', 'bekliyor').order('olusturma', { ascending: false })
-    setBildirimler(data || [])
-    setIstatistik((s: any) => ({ ...s, bekleyenBildirim: Math.max(0, (s.bekleyenBildirim || 1) - 1) }))
+const bildirimOnayla = async (id: number, tahakkukId: number, tutar: number) => {
+  // Ödemeyi kaydet
+  await supabase.from('odemeler').insert({
+    tahakkuk_id: tahakkukId,
+    odeme_tarihi: new Date().toISOString().split('T')[0],
+    tutar, odeme_yontemi: 'havale',
+    aciklama: 'Sakin bildirimi onaylandı'
+  })
+
+  // Tahakkuk toplam ödemeyi kontrol et
+  const { data: tahakkuk } = await supabase
+    .from('tahakkuklar').select('tutar').eq('id', tahakkukId).single()
+
+  const { data: odemeToplamData } = await supabase
+    .from('odemeler').select('tutar').eq('tahakkuk_id', tahakkukId)
+
+  const odenenToplam = odemeToplamData?.reduce((acc, o) => acc + Number(o.tutar), 0) || 0
+
+  // Tam ödendiyse tahakkuku kapat
+  if (tahakkuk && odenenToplam >= Number(tahakkuk.tutar)) {
+    await supabase.from('tahakkuklar')
+      .update({ durum: 'odendi' }).eq('id', tahakkukId)
   }
 
+  // Bildirimi güncelle
+  await supabase.from('odeme_bildirimleri').update({ durum: 'onaylandi' }).eq('id', id)
+
+  // Listeyi yenile
+  const { data } = await supabase
+    .from('odeme_bildirimleri')
+    .select('*, profiller(ad_soyad), tahakkuklar(donem_yil, donem_ay, aidat_turleri(tur_adi))')
+    .eq('durum', 'bekliyor').order('olusturma', { ascending: false })
+  setBildirimler(data || [])
+  setIstatistik((s: any) => ({ ...s, bekleyenBildirim: Math.max(0, (s.bekleyenBildirim || 1) - 1) }))
+}
   const bildirimReddet = async (id: number) => {
     await supabase.from('odeme_bildirimleri').update({ durum: 'reddedildi' }).eq('id', id)
     const { data } = await supabase
