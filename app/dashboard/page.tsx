@@ -22,6 +22,8 @@ export default function Dashboard() {
   const [daireler, setDaireler]                 = useState<any[]>([])
   const [aidatTurleri, setAidatTurleri]         = useState<any[]>([])
   const [duyurular, setDuyurular]               = useState<any[]>([])
+  const [odemeler, setOdemeler]   = useState<any[]>([])
+const [odemeFiltre, setOdemeFiltre] = useState({ yil: new Date().getFullYear(), ay: 0 })
   const [yukleniyor, setYukleniyor]             = useState(true)
   const [aktifSayfa, setAktifSayfa]             = useState('dashboard')
   const [tahakkukMesaj, setTahakkukMesaj]       = useState<any>(null)
@@ -100,7 +102,38 @@ const [eslestirmeYukleniyor, setEslestirmeYukleniyor] = useState(false)
 
       const { data: duyuruData } = await supabase.from('duyurular').select('*').order('olusturma', { ascending: false })
       setDuyurular(duyuruData || [])
+// Ödemeler — ayrı sorgularla
+const { data: odemeData } = await supabase
+  .from('odemeler')
+  .select('*, tahakkuklar(donem_yil, donem_ay, tur_id, daire_id)')
+  .order('odeme_tarihi', { ascending: false })
+  .limit(100)
 
+if (odemeData && odemeData.length > 0) {
+  // Tahakkuk ID'lerinden daire ve tür bilgilerini al
+  const daireIds = [...new Set(odemeData.map((o: any) => o.tahakkuklar?.daire_id).filter(Boolean))]
+  const turIds   = [...new Set(odemeData.map((o: any) => o.tahakkuklar?.tur_id).filter(Boolean))]
+
+  const [{ data: daireMap }, { data: turMap }] = await Promise.all([
+    supabase.from('daireler').select('id, daire_no, bloklar(blok_adi)').in('id', daireIds),
+    supabase.from('aidat_turleri').select('id, tur_adi').in('id', turIds),
+  ])
+
+  const dMap: any = {}
+  daireMap?.forEach((d: any) => { dMap[d.id] = d })
+  const tMap: any = {}
+  turMap?.forEach((t: any) => { tMap[t.id] = t })
+
+  const zenginOdemeler = odemeData.map((o: any) => ({
+    ...o,
+    daire: dMap[o.tahakkuklar?.daire_id],
+    tur:   tMap[o.tahakkuklar?.tur_id],
+  }))
+  setOdemeler(zenginOdemeler)
+} else {
+  setOdemeler([])
+}
+	
       setYukleniyor(false)
     }
     yukle()
@@ -279,6 +312,36 @@ const [eslestirmeYukleniyor, setEslestirmeYukleniyor] = useState(false)
   setEslestirmeYukleniyor(false)
 }
 
+const odemeYenile = async () => {
+  const { data: odemeData } = await supabase
+    .from('odemeler')
+    .select('*, tahakkuklar(donem_yil, donem_ay, tur_id, daire_id)')
+    .order('odeme_tarihi', { ascending: false })
+    .limit(100)
+
+  if (odemeData && odemeData.length > 0) {
+    const daireIds = [...new Set(odemeData.map((o: any) => o.tahakkuklar?.daire_id).filter(Boolean))]
+    const turIds   = [...new Set(odemeData.map((o: any) => o.tahakkuklar?.tur_id).filter(Boolean))]
+
+    const [{ data: daireMap }, { data: turMap }] = await Promise.all([
+      supabase.from('daireler').select('id, daire_no, bloklar(blok_adi)').in('id', daireIds),
+      supabase.from('aidat_turleri').select('id, tur_adi').in('id', turIds),
+    ])
+
+    const dMap: any = {}
+    daireMap?.forEach((d: any) => { dMap[d.id] = d })
+    const tMap: any = {}
+    turMap?.forEach((t: any) => { tMap[t.id] = t })
+
+    setOdemeler(odemeData.map((o: any) => ({
+      ...o,
+      daire: dMap[o.tahakkuklar?.daire_id],
+      tur:   tMap[o.tahakkuklar?.tur_id],
+    })))
+  } else {
+    setOdemeler([])
+  }
+}
   if (yukleniyor) return (
     <div style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', fontFamily: 'sans-serif', color: '#1a3c5e' }}>
       Yükleniyor...
@@ -293,6 +356,7 @@ const [eslestirmeYukleniyor, setEslestirmeYukleniyor] = useState(false)
     { id: 'arizalar',    ikon: '🔧', etiket: `Arıza Talepler${(istatistik.acikAriza || 0) > 0 ? ` (${istatistik.acikAriza})` : ''}` },
     { id: 'duyurular',   ikon: '📢', etiket: 'Duyurular' },
 	{ id: 'daireler', ikon: '🏠', etiket: 'Daire Eşleştirme' },
+	{ id: 'odemeler', ikon: '💰', etiket: 'Ödemeler' },
   ]
 
   return (
@@ -808,6 +872,110 @@ const [eslestirmeYukleniyor, setEslestirmeYukleniyor] = useState(false)
         </div>
       </div>
     </div>
+  </div>
+)}
+
+{/* ÖDEMELER */}
+{aktifSayfa === 'odemeler' && (
+  <div>
+    <h2 style={{ color: '#1a3c5e', marginBottom: '20px' }}>💰 Ödeme Listesi</h2>
+
+    {/* Filtre */}
+    <div style={{ background: '#fff', borderRadius: '12px', padding: '16px 20px', marginBottom: '20px', boxShadow: '0 2px 8px rgba(0,0,0,.06)', border: '1px solid #e5e7eb', display: 'flex', gap: '12px', alignItems: 'center', flexWrap: 'wrap' }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+        <label style={{ fontWeight: '700', fontSize: '.85rem', color: '#374151' }}>Yıl:</label>
+        <select value={odemeFiltre.yil}
+          onChange={e => setOdemeFiltre(f => ({ ...f, yil: parseInt(e.target.value) }))}
+          style={{ padding: '6px 12px', borderRadius: '8px', border: '1px solid #d1d5db', fontSize: '.85rem' }}>
+          {[2024,2025,2026,2027].map(y => <option key={y} value={y}>{y}</option>)}
+        </select>
+      </div>
+      <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+        <label style={{ fontWeight: '700', fontSize: '.85rem', color: '#374151' }}>Ay:</label>
+        <select value={odemeFiltre.ay}
+          onChange={e => setOdemeFiltre(f => ({ ...f, ay: parseInt(e.target.value) }))}
+          style={{ padding: '6px 12px', borderRadius: '8px', border: '1px solid #d1d5db', fontSize: '.85rem' }}>
+          <option value={0}>Tümü</option>
+          {Array.from({length:12},(_,i) => i+1).map(m => (
+            <option key={m} value={m}>{ayAdi(m)}</option>
+          ))}
+        </select>
+      </div>
+      <button onClick={odemeYenile}
+        style={{ padding: '7px 16px', background: '#1a3c5e', color: '#fff', border: 'none', borderRadius: '8px', cursor: 'pointer', fontSize: '.85rem', fontWeight: '700' }}>
+        🔄 Yenile
+      </button>
+    </div>
+
+    {/* Liste */}
+    {(() => {
+      const filtreli = odemeler.filter(o => {
+        const tarih = new Date(o.odeme_tarihi)
+        const yilUygun = tarih.getFullYear() === odemeFiltre.yil
+        const ayUygun = odemeFiltre.ay === 0 || tarih.getMonth() + 1 === odemeFiltre.ay
+        return yilUygun && ayUygun
+      })
+      const toplam = filtreli.reduce((acc, o) => acc + Number(o.tutar), 0)
+      const yontemler: any = { nakit: 'Nakit', havale: 'Havale', eft: 'EFT', kredi_karti: 'Kredi Kartı', diger: 'Diğer' }
+
+      return (
+        <>
+          {/* Özet */}
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '12px', marginBottom: '20px' }}>
+            {[
+              { etiket: 'Toplam Ödeme', deger: filtreli.length + ' adet', renk: '#1a3c5e' },
+              { etiket: 'Toplam Tutar', deger: paraFormat(toplam), renk: '#16a34a' },
+              { etiket: 'Ortalama', deger: filtreli.length > 0 ? paraFormat(toplam / filtreli.length) : '-', renk: '#2e7d9f' },
+            ].map(k => (
+              <div key={k.etiket} style={{ background: '#fff', borderRadius: '12px', padding: '16px', boxShadow: '0 2px 8px rgba(0,0,0,.06)', border: '1px solid #e5e7eb', textAlign: 'center' }}>
+                <div style={{ color: '#6b7280', fontSize: '.75rem', fontWeight: '700', textTransform: 'uppercase', letterSpacing: '.05em', marginBottom: '4px' }}>{k.etiket}</div>
+                <div style={{ fontSize: '1.2rem', fontWeight: '800', color: k.renk }}>{k.deger}</div>
+              </div>
+            ))}
+          </div>
+
+          {/* Tablo */}
+          <div style={{ background: '#fff', borderRadius: '12px', boxShadow: '0 2px 8px rgba(0,0,0,.06)', border: '1px solid #e5e7eb', overflow: 'hidden' }}>
+            <div style={{ background: '#16a34a', color: '#fff', padding: '12px 20px', fontWeight: '700' }}>
+              💰 Ödemeler ({filtreli.length})
+            </div>
+            {filtreli.length === 0 ? (
+              <div style={{ padding: '40px', textAlign: 'center', color: '#9ca3af' }}>
+                Bu dönemde ödeme bulunamadı.
+              </div>
+            ) : filtreli.map((o, i) => (
+              <div key={o.id} style={{ padding: '12px 20px', borderBottom: i < filtreli.length - 1 ? '1px solid #f3f4f6' : 'none', display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '12px', flexWrap: 'wrap' }}>
+                <div>
+                  <div style={{ fontWeight: '700', color: '#374151', fontSize: '.9rem' }}>
+                    {o.daire?.bloklar?.blok_adi} Blok - Daire {o.daire?.daire_no}
+                  </div>
+                  <div style={{ color: '#6b7280', fontSize: '.8rem' }}>
+                    {o.tur?.tur_adi} — {ayAdi(o.tahakkuklar?.donem_ay)} {o.tahakkuklar?.donem_yil}
+                  </div>
+                  <div style={{ color: '#9ca3af', fontSize: '.75rem' }}>
+                    {new Date(o.odeme_tarihi).toLocaleDateString('tr-TR')} · {yontemler[o.odeme_yontemi] || o.odeme_yontemi}
+                  </div>
+                </div>
+                <div style={{ textAlign: 'right' }}>
+                  <div style={{ fontWeight: '800', color: '#16a34a', fontSize: '1rem' }}>
+                    {paraFormat(Number(o.tutar))}
+                  </div>
+                  <span style={{ background: '#dcfce7', color: '#16a34a', padding: '1px 8px', borderRadius: '20px', fontSize: '.72rem', fontWeight: '700' }}>
+                    ✓ Ödendi
+                  </span>
+                </div>
+              </div>
+            ))}
+            {filtreli.length > 0 && (
+              <div style={{ padding: '12px 20px', background: '#f0fdf4', display: 'flex', justifyContent: 'space-between', fontWeight: '800', color: '#16a34a' }}>
+                <span>Toplam</span>
+                <span>{paraFormat(toplam)}</span>
+              </div>
+            )}
+          </div>
+        </>
+      )
+    })()}
   </div>
 )}
         </div>
