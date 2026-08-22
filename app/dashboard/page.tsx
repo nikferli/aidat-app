@@ -22,6 +22,12 @@ export default function Dashboard() {
   const [daireler, setDaireler]                 = useState<any[]>([])
   const [aidatTurleri, setAidatTurleri]         = useState<any[]>([])
   const [duyurular, setDuyurular]               = useState<any[]>([])
+  const [giderler, setGiderler]         = useState<any[]>([])
+const [giderForm, setGiderForm]       = useState({
+  kategori: '', aciklama: '', tutar: '', gider_tarihi: new Date().toISOString().split('T')[0], belge_no: ''
+})
+const [giderMesaj, setGiderMesaj]     = useState<any>(null)
+const [giderYukleniyor, setGiderYukleniyor] = useState(false)
   const [odemeler, setOdemeler]   = useState<any[]>([])
 const [odemeFiltre, setOdemeFiltre] = useState({ yil: new Date().getFullYear(), ay: 0 })
   const [yukleniyor, setYukleniyor]             = useState(true)
@@ -133,7 +139,12 @@ if (odemeData && odemeData.length > 0) {
 } else {
   setOdemeler([])
 }
-	
+	const { data: giderData } = await supabase
+  .from('giderler').select('*')
+  .order('gider_tarihi', { ascending: false })
+  .limit(50)
+setGiderler(giderData || [])
+
       setYukleniyor(false)
     }
     yukle()
@@ -297,6 +308,38 @@ const bildirimOnayla = async (id: number, tahakkukId: number, tutar: number) => 
     setDuyurular(prev => prev.filter(d => d.id !== id))
   }
   
+  const giderEkle = async (e: React.FormEvent) => {
+  e.preventDefault()
+  setGiderYukleniyor(true)
+  setGiderMesaj(null)
+
+  const { error } = await supabase.from('giderler').insert({
+    kategori:     giderForm.kategori,
+    aciklama:     giderForm.aciklama,
+    tutar:        parseFloat(giderForm.tutar),
+    gider_tarihi: giderForm.gider_tarihi,
+    belge_no:     giderForm.belge_no || null,
+    kaydeden_id:  kullanici?.id
+  })
+
+  if (error) {
+    setGiderMesaj({ tip: 'hata', metin: error.message })
+  } else {
+    setGiderMesaj({ tip: 'basari', metin: 'Gider kaydedildi!' })
+    setGiderForm({ kategori: '', aciklama: '', tutar: '', gider_tarihi: new Date().toISOString().split('T')[0], belge_no: '' })
+    const { data } = await supabase
+      .from('giderler').select('*')
+      .order('gider_tarihi', { ascending: false }).limit(50)
+    setGiderler(data || [])
+  }
+  setGiderYukleniyor(false)
+}
+
+const giderSil = async (id: number) => {
+  await supabase.from('giderler').delete().eq('id', id)
+  setGiderler(prev => prev.filter(g => g.id !== id))
+}
+
   const daireEslestir = async (e: React.FormEvent) => {
   e.preventDefault()
   setEslestirmeYukleniyor(true)
@@ -377,6 +420,7 @@ const odemeYenile = async () => {
     { id: 'duyurular',   ikon: '📢', etiket: 'Duyurular' },
 	{ id: 'daireler', ikon: '🏠', etiket: 'Daire Eşleştirme' },
 	{ id: 'odemeler', ikon: '💰', etiket: 'Ödemeler' },
+	{ id: 'giderler', ikon: '💸', etiket: 'Giderler' },
   ]
 
   return (
@@ -760,11 +804,148 @@ const odemeYenile = async () => {
                         </button>
                       </div>
                     </div>
+					
                   ))}
+				  
                 </div>
               </div>
             </div>
+          )}{/* GİDERLER */}
+{aktifSayfa === 'giderler' && (
+  <div>
+    <h2 style={{ color: '#1a3c5e', marginBottom: '20px' }}>💸 Gider Yönetimi</h2>
+
+    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '20px', alignItems: 'flex-start' }}>
+
+      {/* Form */}
+      <div style={{ background: '#fff', borderRadius: '12px', boxShadow: '0 2px 8px rgba(0,0,0,.06)', border: '1px solid #e5e7eb', overflow: 'hidden' }}>
+        <div style={{ background: '#dc2626', color: '#fff', padding: '12px 20px', fontWeight: '700' }}>
+          💸 Yeni Gider Ekle
+        </div>
+        <div style={{ padding: '20px' }}>
+          {giderMesaj && (
+            <div style={{
+              background: giderMesaj.tip === 'basari' ? '#dcfce7' : '#fee2e2',
+              color: giderMesaj.tip === 'basari' ? '#166534' : '#991b1b',
+              borderRadius: '8px', padding: '12px 16px',
+              marginBottom: '16px', fontSize: '.85rem', fontWeight: '600'
+            }}>
+              {giderMesaj.metin}
+            </div>
           )}
+          <form onSubmit={giderEkle}>
+            <div style={{ marginBottom: '14px' }}>
+              <label style={{ display: 'block', fontWeight: '700', fontSize: '.82rem', color: '#374151', marginBottom: '6px' }}>Kategori</label>
+              <select value={giderForm.kategori}
+                onChange={e => setGiderForm(f => ({ ...f, kategori: e.target.value }))}
+                required
+                style={{ width: '100%', padding: '9px 12px', borderRadius: '8px', border: '1px solid #d1d5db', fontSize: '.85rem' }}>
+                <option value="">-- Seçin --</option>
+                {['Temizlik','Elektrik','Su','Doğalgaz','Asansör Bakım','Güvenlik','Bahçe','Tadilat','Sigorta','Yönetim','Diğer'].map(k => (
+                  <option key={k} value={k}>{k}</option>
+                ))}
+              </select>
+            </div>
+
+            <div style={{ marginBottom: '14px' }}>
+              <label style={{ display: 'block', fontWeight: '700', fontSize: '.82rem', color: '#374151', marginBottom: '6px' }}>Açıklama</label>
+              <input type="text" value={giderForm.aciklama}
+                onChange={e => setGiderForm(f => ({ ...f, aciklama: e.target.value }))}
+                placeholder="Gider açıklaması..."
+                style={{ width: '100%', padding: '9px 12px', borderRadius: '8px', border: '1px solid #d1d5db', fontSize: '.85rem', boxSizing: 'border-box' }} />
+            </div>
+
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px', marginBottom: '14px' }}>
+              <div>
+                <label style={{ display: 'block', fontWeight: '700', fontSize: '.82rem', color: '#374151', marginBottom: '6px' }}>Tutar (₺)</label>
+                <input type="number" step="0.01" required value={giderForm.tutar}
+                  onChange={e => setGiderForm(f => ({ ...f, tutar: e.target.value }))}
+                  style={{ width: '100%', padding: '9px 12px', borderRadius: '8px', border: '1px solid #d1d5db', fontSize: '.85rem', boxSizing: 'border-box' }} />
+              </div>
+              <div>
+                <label style={{ display: 'block', fontWeight: '700', fontSize: '.82rem', color: '#374151', marginBottom: '6px' }}>Tarih</label>
+                <input type="date" required value={giderForm.gider_tarihi}
+                  onChange={e => setGiderForm(f => ({ ...f, gider_tarihi: e.target.value }))}
+                  style={{ width: '100%', padding: '9px 12px', borderRadius: '8px', border: '1px solid #d1d5db', fontSize: '.85rem', boxSizing: 'border-box' }} />
+              </div>
+            </div>
+
+            <div style={{ marginBottom: '20px' }}>
+              <label style={{ display: 'block', fontWeight: '700', fontSize: '.82rem', color: '#374151', marginBottom: '6px' }}>
+                Belge No <span style={{ color: '#9ca3af', fontWeight: '400' }}>(opsiyonel)</span>
+              </label>
+              <input type="text" value={giderForm.belge_no}
+                onChange={e => setGiderForm(f => ({ ...f, belge_no: e.target.value }))}
+                placeholder="Fatura no, makbuz no..."
+                style={{ width: '100%', padding: '9px 12px', borderRadius: '8px', border: '1px solid #d1d5db', fontSize: '.85rem', boxSizing: 'border-box' }} />
+            </div>
+
+            <button type="submit" disabled={giderYukleniyor}
+              style={{ width: '100%', padding: '11px', background: giderYukleniyor ? '#9ca3af' : '#dc2626', color: '#fff', border: 'none', borderRadius: '10px', fontSize: '.9rem', fontWeight: '700', cursor: 'pointer' }}>
+              {giderYukleniyor ? 'Kaydediliyor...' : '💸 Gider Ekle'}
+            </button>
+          </form>
+        </div>
+      </div>
+
+      {/* Gider Listesi */}
+      <div>
+        {/* Özet */}
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px', marginBottom: '16px' }}>
+          {[
+            { label: 'Bu Ay Toplam', deger: giderler.filter(g => new Date(g.gider_tarihi).getMonth() === new Date().getMonth() && new Date(g.gider_tarihi).getFullYear() === new Date().getFullYear()).reduce((acc, g) => acc + Number(g.tutar), 0), renk: '#dc2626' },
+            { label: 'Bu Yıl Toplam', deger: giderler.filter(g => new Date(g.gider_tarihi).getFullYear() === new Date().getFullYear()).reduce((acc, g) => acc + Number(g.tutar), 0), renk: '#1a3c5e' },
+          ].map(k => (
+            <div key={k.label} style={{ background: '#fff', borderRadius: '12px', padding: '16px', boxShadow: '0 2px 8px rgba(0,0,0,.06)', border: '1px solid #e5e7eb', textAlign: 'center' }}>
+              <div style={{ color: '#6b7280', fontSize: '.72rem', fontWeight: '700', textTransform: 'uppercase', marginBottom: '4px' }}>{k.label}</div>
+              <div style={{ fontSize: '1.2rem', fontWeight: '800', color: k.renk }}>
+                {Number(k.deger).toLocaleString('tr-TR', { minimumFractionDigits: 2 })} ₺
+              </div>
+            </div>
+          ))}
+        </div>
+
+        {/* Liste */}
+        <div style={{ background: '#fff', borderRadius: '12px', boxShadow: '0 2px 8px rgba(0,0,0,.06)', border: '1px solid #e5e7eb', overflow: 'hidden' }}>
+          <div style={{ background: '#374151', color: '#fff', padding: '12px 20px', fontWeight: '700' }}>
+            📋 Son Giderler ({giderler.length})
+          </div>
+          <div style={{ maxHeight: '500px', overflowY: 'auto' }}>
+            {giderler.length === 0 ? (
+              <div style={{ padding: '32px', textAlign: 'center', color: '#9ca3af' }}>Henüz gider kaydı yok.</div>
+            ) : giderler.map((g, i) => (
+              <div key={g.id} style={{ padding: '12px 20px', borderBottom: i < giderler.length - 1 ? '1px solid #f3f4f6' : 'none', display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '12px' }}>
+                <div style={{ flex: 1 }}>
+                  <div style={{ display: 'flex', gap: '8px', alignItems: 'center', marginBottom: '2px' }}>
+                    <span style={{ background: '#f3f4f6', color: '#374151', padding: '1px 8px', borderRadius: '20px', fontSize: '.72rem', fontWeight: '700' }}>
+                      {g.kategori}
+                    </span>
+                    {g.belge_no && (
+                      <span style={{ color: '#9ca3af', fontSize: '.72rem' }}>#{g.belge_no}</span>
+                    )}
+                  </div>
+                  <div style={{ color: '#374151', fontSize: '.85rem' }}>{g.aciklama || '—'}</div>
+                  <div style={{ color: '#9ca3af', fontSize: '.75rem' }}>
+                    {new Date(g.gider_tarihi).toLocaleDateString('tr-TR')}
+                  </div>
+                </div>
+                <div style={{ textAlign: 'right', flexShrink: 0 }}>
+                  <div style={{ fontWeight: '800', color: '#dc2626', fontSize: '1rem' }}>
+                    {Number(g.tutar).toLocaleString('tr-TR', { minimumFractionDigits: 2 })} ₺
+                  </div>
+                  <button onClick={() => { if (confirm('Bu gider silinecek?')) giderSil(g.id) }}
+                    style={{ background: '#fee2e2', color: '#dc2626', border: 'none', borderRadius: '6px', padding: '3px 8px', cursor: 'pointer', fontSize: '.72rem', marginTop: '4px' }}>
+                    🗑️ Sil
+                  </button>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+)}
 {/* DAİRE EŞLEŞTİRME */}
 {aktifSayfa === 'daireler' && (
   <div>
