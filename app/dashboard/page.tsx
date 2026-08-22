@@ -22,6 +22,11 @@ export default function Dashboard() {
   const [daireler, setDaireler]                 = useState<any[]>([])
   const [aidatTurleri, setAidatTurleri]         = useState<any[]>([])
   const [duyurular, setDuyurular]               = useState<any[]>([])
+  const [butce, setButce]               = useState<any[]>([])
+const [butceYil, setButceYil]         = useState(new Date().getFullYear())
+const [butceMesaj, setButceMesaj]     = useState<any>(null)
+const [butceYukleniyor, setButceYukleniyor] = useState(false)
+const [butceForm, setButceForm]       = useState({ kategori: '', butce_tutar: '', aciklama: '' })
   const [giderler, setGiderler]         = useState<any[]>([])
 const [giderForm, setGiderForm]       = useState({
   kategori: '', aciklama: '', tutar: '', gider_tarihi: new Date().toISOString().split('T')[0], belge_no: ''
@@ -144,6 +149,13 @@ if (odemeData && odemeData.length > 0) {
   .order('gider_tarihi', { ascending: false })
   .limit(50)
 setGiderler(giderData || [])
+
+const { data: butceData } = await supabase
+  .from('butce').select('*')
+  .eq('yil', new Date().getFullYear())
+  .order('kategori')
+console.log('Bütçe:', butceData)
+setButce(butceData || [])
 
       setYukleniyor(false)
     }
@@ -340,6 +352,35 @@ const giderSil = async (id: number) => {
   setGiderler(prev => prev.filter(g => g.id !== id))
 }
 
+const butceYukle = async (yil: number) => {
+  const { data } = await supabase
+    .from('butce').select('*')
+    .eq('yil', yil).order('kategori')
+  setButce(data || [])
+}
+
+const butceKaydet = async (e: React.FormEvent) => {
+  e.preventDefault()
+  setButceYukleniyor(true)
+  setButceMesaj(null)
+
+  const { error } = await supabase.from('butce').upsert({
+    yil: butceYil,
+    kategori: butceForm.kategori,
+    butce_tutar: parseFloat(butceForm.butce_tutar),
+    aciklama: butceForm.aciklama
+  }, { onConflict: 'yil,kategori' })
+
+  if (error) {
+    setButceMesaj({ tip: 'hata', metin: error.message })
+  } else {
+    setButceMesaj({ tip: 'basari', metin: 'Bütçe kaydedildi!' })
+    setButceForm({ kategori: '', butce_tutar: '', aciklama: '' })
+    butceYukle(butceYil)
+  }
+  setButceYukleniyor(false)
+}
+
   const daireEslestir = async (e: React.FormEvent) => {
   e.preventDefault()
   setEslestirmeYukleniyor(true)
@@ -421,6 +462,7 @@ const odemeYenile = async () => {
 	{ id: 'daireler', ikon: '🏠', etiket: 'Daire Eşleştirme' },
 	{ id: 'odemeler', ikon: '💰', etiket: 'Ödemeler' },
 	{ id: 'giderler', ikon: '💸', etiket: 'Giderler' },
+	{ id: 'butce', ikon: '📊', etiket: 'Bütçe Takibi' },
   ]
 
   return (
@@ -946,6 +988,154 @@ const odemeYenile = async () => {
     </div>
   </div>
 )}
+{/* BÜTÇE TAKİBİ */}
+{aktifSayfa === 'butce' && (
+  <div>
+    <h2 style={{ color: '#1a3c5e', marginBottom: '20px' }}>📊 Bütçe Takibi</h2>
+
+    {/* Yıl Seçimi */}
+    <div style={{ background: '#fff', borderRadius: '12px', padding: '16px 20px', marginBottom: '20px', boxShadow: '0 2px 8px rgba(0,0,0,.06)', border: '1px solid #e5e7eb', display: 'flex', gap: '12px', alignItems: 'center' }}>
+      <label style={{ fontWeight: '700', fontSize: '.85rem', color: '#374151' }}>Yıl:</label>
+      <select value={butceYil}
+        onChange={e => { setButceYil(parseInt(e.target.value)); butceYukle(parseInt(e.target.value)) }}
+        style={{ padding: '7px 12px', borderRadius: '8px', border: '1px solid #d1d5db', fontSize: '.85rem' }}>
+        {[2024,2025,2026,2027].map(y => <option key={y} value={y}>{y}</option>)}
+      </select>
+    </div>
+
+    <div style={{ display: 'grid', gridTemplateColumns: '1fr 2fr', gap: '20px', alignItems: 'flex-start' }}>
+
+      {/* Form */}
+      <div style={{ background: '#fff', borderRadius: '12px', boxShadow: '0 2px 8px rgba(0,0,0,.06)', border: '1px solid #e5e7eb', overflow: 'hidden' }}>
+        <div style={{ background: '#1a3c5e', color: '#fff', padding: '12px 20px', fontWeight: '700' }}>
+          ➕ Bütçe Ekle / Güncelle
+        </div>
+        <div style={{ padding: '20px' }}>
+          {butceMesaj && (
+            <div style={{
+              background: butceMesaj.tip === 'basari' ? '#dcfce7' : '#fee2e2',
+              color: butceMesaj.tip === 'basari' ? '#166534' : '#991b1b',
+              borderRadius: '8px', padding: '12px 16px',
+              marginBottom: '16px', fontSize: '.85rem', fontWeight: '600'
+            }}>
+              {butceMesaj.metin}
+            </div>
+          )}
+          <form onSubmit={butceKaydet}>
+            <div style={{ marginBottom: '14px' }}>
+              <label style={{ display: 'block', fontWeight: '700', fontSize: '.82rem', color: '#374151', marginBottom: '6px' }}>Kategori</label>
+              <select value={butceForm.kategori}
+                onChange={e => setButceForm(f => ({ ...f, kategori: e.target.value }))}
+                required
+                style={{ width: '100%', padding: '9px 12px', borderRadius: '8px', border: '1px solid #d1d5db', fontSize: '.85rem' }}>
+                <option value="">-- Seçin --</option>
+                {['Temizlik','Elektrik','Su','Doğalgaz','Asansör Bakım','Güvenlik','Bahçe','Tadilat','Sigorta','Yönetim','Diğer'].map(k => (
+                  <option key={k} value={k}>{k}</option>
+                ))}
+              </select>
+            </div>
+            <div style={{ marginBottom: '14px' }}>
+              <label style={{ display: 'block', fontWeight: '700', fontSize: '.82rem', color: '#374151', marginBottom: '6px' }}>Yıllık Bütçe (₺)</label>
+              <input type="number" step="0.01" required value={butceForm.butce_tutar}
+                onChange={e => setButceForm(f => ({ ...f, butce_tutar: e.target.value }))}
+                style={{ width: '100%', padding: '9px 12px', borderRadius: '8px', border: '1px solid #d1d5db', fontSize: '.85rem', boxSizing: 'border-box' }} />
+            </div>
+            <div style={{ marginBottom: '20px' }}>
+              <label style={{ display: 'block', fontWeight: '700', fontSize: '.82rem', color: '#374151', marginBottom: '6px' }}>
+                Açıklama <span style={{ color: '#9ca3af', fontWeight: '400' }}>(opsiyonel)</span>
+              </label>
+              <input type="text" value={butceForm.aciklama}
+                onChange={e => setButceForm(f => ({ ...f, aciklama: e.target.value }))}
+                style={{ width: '100%', padding: '9px 12px', borderRadius: '8px', border: '1px solid #d1d5db', fontSize: '.85rem', boxSizing: 'border-box' }} />
+            </div>
+            <button type="submit" disabled={butceYukleniyor}
+              style={{ width: '100%', padding: '11px', background: butceYukleniyor ? '#9ca3af' : '#1a3c5e', color: '#fff', border: 'none', borderRadius: '10px', fontSize: '.9rem', fontWeight: '700', cursor: 'pointer' }}>
+              {butceYukleniyor ? 'Kaydediliyor...' : '💾 Kaydet'}
+            </button>
+          </form>
+        </div>
+      </div>
+
+      {/* Bütçe Tablosu */}
+      <div>
+        {/* Genel Özet */}
+        {(() => {
+          const toplamButce  = butce.reduce((acc, b) => acc + Number(b.butce_tutar), 0)
+          const toplamHarcama = giderler
+            .filter(g => new Date(g.gider_tarihi).getFullYear() === butceYil)
+            .reduce((acc, g) => acc + Number(g.tutar), 0)
+          const toplamKalan  = toplamButce - toplamHarcama
+          const kullanim     = toplamButce > 0 ? Math.round(toplamHarcama / toplamButce * 100) : 0
+
+          return (
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '12px', marginBottom: '16px' }}>
+              {[
+                { label: 'Toplam Bütçe',    deger: toplamButce,   renk: '#1a3c5e' },
+                { label: 'Toplam Harcama',  deger: toplamHarcama, renk: '#dc2626' },
+                { label: 'Kalan Bütçe',     deger: toplamKalan,   renk: toplamKalan >= 0 ? '#16a34a' : '#dc2626' },
+                { label: 'Kullanım Oranı',  deger: null,          renk: kullanim > 90 ? '#dc2626' : kullanim > 70 ? '#d97706' : '#16a34a' },
+              ].map(k => (
+                <div key={k.label} style={{ background: '#fff', borderRadius: '12px', padding: '14px', boxShadow: '0 2px 8px rgba(0,0,0,.06)', border: '1px solid #e5e7eb', textAlign: 'center' }}>
+                  <div style={{ color: '#6b7280', fontSize: '.7rem', fontWeight: '700', textTransform: 'uppercase', marginBottom: '4px' }}>{k.label}</div>
+                  <div style={{ fontSize: '1rem', fontWeight: '800', color: k.renk }}>
+                    {k.deger !== null ? Number(k.deger).toLocaleString('tr-TR', { minimumFractionDigits: 2 }) + ' ₺' : `%${kullanim}`}
+                  </div>
+                </div>
+              ))}
+            </div>
+          )
+        })()}
+
+        {/* Kategori Bazlı Tablo */}
+        <div style={{ background: '#fff', borderRadius: '12px', boxShadow: '0 2px 8px rgba(0,0,0,.06)', border: '1px solid #e5e7eb', overflow: 'hidden' }}>
+          <div style={{ background: '#374151', color: '#fff', padding: '12px 20px', fontWeight: '700' }}>
+            📊 Kategori Bazlı Bütçe — {butceYil}
+          </div>
+          {butce.length === 0 ? (
+            <div style={{ padding: '32px', textAlign: 'center', color: '#9ca3af' }}>
+              Bu yıl için bütçe tanımlanmamış.
+            </div>
+          ) : butce.map((b, i) => {
+            const harcama = giderler
+              .filter(g => g.kategori === b.kategori && new Date(g.gider_tarihi).getFullYear() === butceYil)
+              .reduce((acc, g) => acc + Number(g.tutar), 0)
+            const kalan   = Number(b.butce_tutar) - harcama
+            const oran    = Number(b.butce_tutar) > 0 ? Math.round(harcama / Number(b.butce_tutar) * 100) : 0
+            const barRenk = oran > 90 ? '#dc2626' : oran > 70 ? '#d97706' : '#16a34a'
+
+            return (
+              <div key={b.id} style={{ padding: '14px 20px', borderBottom: i < butce.length - 1 ? '1px solid #f3f4f6' : 'none' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '6px' }}>
+                  <div style={{ fontWeight: '700', color: '#374151', fontSize: '.9rem' }}>{b.kategori}</div>
+                  <div style={{ fontSize: '.8rem', color: '#6b7280' }}>
+                    <span style={{ color: '#dc2626', fontWeight: '700' }}>{harcama.toLocaleString('tr-TR', { minimumFractionDigits: 0 })} ₺</span>
+                    {' / '}
+                    {Number(b.butce_tutar).toLocaleString('tr-TR', { minimumFractionDigits: 0 })} ₺
+                    <span style={{ marginLeft: '8px', fontWeight: '700', color: barRenk }}>%{oran}</span>
+                  </div>
+                </div>
+                {/* Progress bar */}
+                <div style={{ background: '#f3f4f6', borderRadius: '4px', height: '8px', overflow: 'hidden' }}>
+                  <div style={{ background: barRenk, width: `${Math.min(oran, 100)}%`, height: '100%', borderRadius: '4px', transition: 'width .3s' }} />
+                </div>
+                <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: '4px' }}>
+                  <span style={{ fontSize: '.72rem', color: '#9ca3af' }}>Kalan: {kalan.toLocaleString('tr-TR', { minimumFractionDigits: 0 })} ₺</span>
+                  <button onClick={() => {
+                    setButceForm({ kategori: b.kategori, butce_tutar: String(b.butce_tutar), aciklama: b.aciklama || '' })
+                  }}
+                    style={{ fontSize: '.72rem', color: '#1a3c5e', background: 'none', border: 'none', cursor: 'pointer', fontWeight: '600' }}>
+                    ✏️ Düzenle
+                  </button>
+                </div>
+              </div>
+            )
+          })}
+        </div>
+      </div>
+    </div>
+  </div>
+)}
+
 {/* DAİRE EŞLEŞTİRME */}
 {aktifSayfa === 'daireler' && (
   <div>
