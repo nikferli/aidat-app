@@ -23,6 +23,16 @@ export default function Dashboard() {
   const [aidatTurleri, setAidatTurleri]         = useState<any[]>([])
   const [duyurular, setDuyurular]               = useState<any[]>([])
   const [yilsonuYil, setYilsonuYil]     = useState(new Date().getFullYear())
+  const [artisForm, setArtisForm] = useState({
+  kapsam: 'tumu',
+  tur_id: '',
+  yontem: 'yuzde',
+  deger: '',
+  aciklama: ''
+})
+const [artisMesaj, setArtisMesaj]     = useState<any>(null)
+const [artisYukleniyor, setArtisYukleniyor] = useState(false)
+const [artisOnizleme, setArtisOnizleme] = useState<any[]>([])
 const [yilsonuVeri, setYilsonuVeri]   = useState<any>(null)
 const [yilsonuYukleniyor, setYilsonuYukleniyor] = useState(false)
 
@@ -462,6 +472,48 @@ const yilsonuHesapla = async (yil: number) => {
   setYilsonuYukleniyor(false)
 }
 
+const artisOnizlemeHesapla = () => {
+  if (!artisForm.deger) return
+  const deger = parseFloat(artisForm.deger)
+
+  const hedefTurler = artisForm.kapsam === 'tur'
+    ? aidatTurleri.filter(t => t.id === parseInt(artisForm.tur_id))
+    : aidatTurleri
+
+  const onizleme = hedefTurler.map(t => {
+    const eskiTutar = Number(t.varsayilan_tutar)
+    const yeniTutar = artisForm.yontem === 'yuzde'
+      ? Math.round(eskiTutar * (1 + deger / 100) * 100) / 100
+      : eskiTutar + deger
+    return { ...t, eskiTutar, yeniTutar, fark: yeniTutar - eskiTutar }
+  })
+  setArtisOnizleme(onizleme)
+}
+
+const artisUygula = async (e: React.FormEvent) => {
+  e.preventDefault()
+  if (!confirm('Aidat artışı uygulanacak. Emin misiniz?')) return
+  setArtisYukleniyor(true)
+  setArtisMesaj(null)
+
+  let basarili = 0
+  for (const tur of artisOnizleme) {
+    const { error } = await supabase
+      .from('aidat_turleri')
+      .update({ varsayilan_tutar: tur.yeniTutar })
+      .eq('id', tur.id)
+    if (!error) basarili++
+  }
+
+  // Aidat türlerini yenile
+  const { data } = await supabase.from('aidat_turleri').select('*').eq('durum', 'aktif')
+  setAidatTurleri(data || [])
+  setArtisOnizleme([])
+  setArtisForm({ kapsam: 'tumu', tur_id: '', yontem: 'yuzde', deger: '', aciklama: '' })
+  setArtisMesaj({ tip: 'basari', metin: `${basarili} aidat türü güncellendi!` })
+  setArtisYukleniyor(false)
+}
+
 useEffect(() => {
   if (aktifSayfa === 'yilsonu') yilsonuHesapla(yilsonuYil)
 }, [aktifSayfa, yilsonuYil])
@@ -549,6 +601,7 @@ const odemeYenile = async () => {
 	{ id: 'giderler', ikon: '💸', etiket: 'Giderler' },
 	{ id: 'butce', ikon: '📊', etiket: 'Bütçe Takibi' },
 	{ id: 'yilsonu', ikon: '📈', etiket: 'Yıl Sonu Raporu' },
+	{ id: 'aidat_artis', ikon: '📈', etiket: 'Aidat Artış' },
   ]
 
   return (
@@ -1338,6 +1391,163 @@ const odemeYenile = async () => {
         </div>
       </>
     )}
+  </div>
+)}
+{/* AİDAT ARTIŞ YÖNETİMİ */}
+{aktifSayfa === 'aidat_artis' && (
+  <div>
+    <h2 style={{ color: '#1a3c5e', marginBottom: '20px' }}>📈 Aidat Artış Yönetimi</h2>
+
+    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '20px', alignItems: 'flex-start' }}>
+
+      {/* Form */}
+      <div style={{ background: '#fff', borderRadius: '12px', boxShadow: '0 2px 8px rgba(0,0,0,.06)', border: '1px solid #e5e7eb', overflow: 'hidden' }}>
+        <div style={{ background: '#1a3c5e', color: '#fff', padding: '12px 20px', fontWeight: '700' }}>
+          📈 Artış Uygula
+        </div>
+        <div style={{ padding: '20px' }}>
+          {artisMesaj && (
+            <div style={{
+              background: artisMesaj.tip === 'basari' ? '#dcfce7' : '#fee2e2',
+              color: artisMesaj.tip === 'basari' ? '#166534' : '#991b1b',
+              borderRadius: '8px', padding: '12px 16px',
+              marginBottom: '16px', fontSize: '.85rem', fontWeight: '600'
+            }}>
+              {artisMesaj.metin}
+            </div>
+          )}
+
+          <form onSubmit={artisUygula}>
+            {/* Kapsam */}
+            <div style={{ marginBottom: '14px' }}>
+              <label style={{ display: 'block', fontWeight: '700', fontSize: '.82rem', color: '#374151', marginBottom: '6px' }}>Kapsam</label>
+              <div style={{ display: 'flex', gap: '8px' }}>
+                {[
+                  { value: 'tumu', label: '🏢 Tüm Türler' },
+                  { value: 'tur',  label: '📋 Belirli Tür' },
+                ].map(o => (
+                  <button key={o.value} type="button"
+                    onClick={() => setArtisForm(f => ({ ...f, kapsam: o.value, tur_id: '' }))}
+                    style={{
+                      flex: 1, padding: '8px', borderRadius: '8px', cursor: 'pointer',
+                      fontSize: '.82rem', fontWeight: '700',
+                      border: artisForm.kapsam === o.value ? '2px solid #1a3c5e' : '1px solid #d1d5db',
+                      background: artisForm.kapsam === o.value ? '#eff6ff' : '#fff',
+                      color: artisForm.kapsam === o.value ? '#1a3c5e' : '#6b7280'
+                    }}>{o.label}</button>
+                ))}
+              </div>
+            </div>
+
+            {/* Tür seçimi */}
+            {artisForm.kapsam === 'tur' && (
+              <div style={{ marginBottom: '14px' }}>
+                <label style={{ display: 'block', fontWeight: '700', fontSize: '.82rem', color: '#374151', marginBottom: '6px' }}>Aidat Türü</label>
+                <select value={artisForm.tur_id}
+                  onChange={e => setArtisForm(f => ({ ...f, tur_id: e.target.value }))}
+                  required
+                  style={{ width: '100%', padding: '9px 12px', borderRadius: '8px', border: '1px solid #d1d5db', fontSize: '.85rem' }}>
+                  <option value="">-- Seçin --</option>
+                  {aidatTurleri.map(t => (
+                    <option key={t.id} value={t.id}>
+                      {t.tur_adi} ({paraFormat(Number(t.varsayilan_tutar))})
+                    </option>
+                  ))}
+                </select>
+              </div>
+            )}
+
+            {/* Yöntem */}
+            <div style={{ marginBottom: '14px' }}>
+              <label style={{ display: 'block', fontWeight: '700', fontSize: '.82rem', color: '#374151', marginBottom: '6px' }}>Artış Yöntemi</label>
+              <div style={{ display: 'flex', gap: '8px' }}>
+                {[
+                  { value: 'yuzde', label: '% Yüzde' },
+                  { value: 'sabit', label: '₺ Sabit Tutar' },
+                ].map(o => (
+                  <button key={o.value} type="button"
+                    onClick={() => setArtisForm(f => ({ ...f, yontem: o.value, deger: '' }))}
+                    style={{
+                      flex: 1, padding: '8px', borderRadius: '8px', cursor: 'pointer',
+                      fontSize: '.82rem', fontWeight: '700',
+                      border: artisForm.yontem === o.value ? '2px solid #1a3c5e' : '1px solid #d1d5db',
+                      background: artisForm.yontem === o.value ? '#eff6ff' : '#fff',
+                      color: artisForm.yontem === o.value ? '#1a3c5e' : '#6b7280'
+                    }}>{o.label}</button>
+                ))}
+              </div>
+            </div>
+
+            {/* Değer */}
+            <div style={{ marginBottom: '14px' }}>
+              <label style={{ display: 'block', fontWeight: '700', fontSize: '.82rem', color: '#374151', marginBottom: '6px' }}>
+                {artisForm.yontem === 'yuzde' ? 'Artış Oranı (%)' : 'Artış Tutarı (₺)'}
+              </label>
+              <input type="number" step="0.01" min="0" required
+                value={artisForm.deger}
+                onChange={e => setArtisForm(f => ({ ...f, deger: e.target.value }))}
+                placeholder={artisForm.yontem === 'yuzde' ? 'Örn: 10 (%10 artış)' : 'Örn: 50 (50₺ artış)'}
+                style={{ width: '100%', padding: '9px 12px', borderRadius: '8px', border: '1px solid #d1d5db', fontSize: '.85rem', boxSizing: 'border-box' }} />
+            </div>
+
+            <div style={{ display: 'flex', gap: '8px' }}>
+              <button type="button" onClick={artisOnizlemeHesapla}
+                disabled={!artisForm.deger || (artisForm.kapsam === 'tur' && !artisForm.tur_id)}
+                style={{ flex: 1, padding: '10px', background: '#f0f9ff', color: '#1a3c5e', border: '2px solid #1a3c5e', borderRadius: '10px', cursor: 'pointer', fontWeight: '700', fontSize: '.85rem' }}>
+                👁️ Önizle
+              </button>
+              <button type="submit" disabled={artisYukleniyor || artisOnizleme.length === 0}
+                style={{ flex: 1, padding: '10px', background: artisOnizleme.length === 0 ? '#9ca3af' : '#dc2626', color: '#fff', border: 'none', borderRadius: '10px', cursor: 'pointer', fontWeight: '700', fontSize: '.85rem' }}>
+                {artisYukleniyor ? 'Uygulanıyor...' : '✅ Uygula'}
+              </button>
+            </div>
+          </form>
+        </div>
+      </div>
+
+      {/* Mevcut Türler + Önizleme */}
+      <div>
+        {/* Önizleme */}
+        {artisOnizleme.length > 0 && (
+          <div style={{ background: '#fffbeb', border: '2px solid #f59e0b', borderRadius: '12px', padding: '16px 20px', marginBottom: '16px' }}>
+            <div style={{ fontWeight: '700', color: '#92400e', marginBottom: '12px' }}>
+              👁️ Önizleme — Onaylamadan önce kontrol edin
+            </div>
+            {artisOnizleme.map(t => (
+              <div key={t.id} style={{ display: 'flex', justifyContent: 'space-between', padding: '6px 0', borderBottom: '1px solid #fde68a', fontSize: '.85rem' }}>
+                <span style={{ fontWeight: '600' }}>{t.tur_adi}</span>
+                <span>
+                  <span style={{ color: '#6b7280', textDecoration: 'line-through', marginRight: '8px' }}>
+                    {paraFormat(t.eskiTutar)}
+                  </span>
+                  <span style={{ color: '#16a34a', fontWeight: '700' }}>
+                    {paraFormat(t.yeniTutar)}
+                  </span>
+                  <span style={{ color: '#d97706', fontSize: '.78rem', marginLeft: '6px' }}>
+                    (+{paraFormat(t.fark)})
+                  </span>
+                </span>
+              </div>
+            ))}
+          </div>
+        )}
+
+        {/* Mevcut Türler */}
+        <div style={{ background: '#fff', borderRadius: '12px', boxShadow: '0 2px 8px rgba(0,0,0,.06)', border: '1px solid #e5e7eb', overflow: 'hidden' }}>
+          <div style={{ background: '#374151', color: '#fff', padding: '12px 20px', fontWeight: '700' }}>
+            📋 Mevcut Aidat Türleri
+          </div>
+          {aidatTurleri.map((t, i) => (
+            <div key={t.id} style={{ padding: '12px 20px', borderBottom: i < aidatTurleri.length - 1 ? '1px solid #f3f4f6' : 'none', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+              <span style={{ fontWeight: '600', color: '#374151' }}>{t.tur_adi}</span>
+              <span style={{ fontWeight: '800', color: '#1a3c5e', fontSize: '1rem' }}>
+                {paraFormat(Number(t.varsayilan_tutar))}
+              </span>
+            </div>
+          ))}
+        </div>
+      </div>
+    </div>
   </div>
 )}
 
