@@ -22,6 +22,10 @@ export default function Dashboard() {
   const [daireler, setDaireler]                 = useState<any[]>([])
   const [aidatTurleri, setAidatTurleri]         = useState<any[]>([])
   const [duyurular, setDuyurular]               = useState<any[]>([])
+  const [yilsonuYil, setYilsonuYil]     = useState(new Date().getFullYear())
+const [yilsonuVeri, setYilsonuVeri]   = useState<any>(null)
+const [yilsonuYukleniyor, setYilsonuYukleniyor] = useState(false)
+
   const [butce, setButce]               = useState<any[]>([])
 const [butceYil, setButceYil]         = useState(new Date().getFullYear())
 const [butceMesaj, setButceMesaj]     = useState<any>(null)
@@ -380,6 +384,87 @@ const butceKaydet = async (e: React.FormEvent) => {
   }
   setButceYukleniyor(false)
 }
+const yilsonuHesapla = async (yil: number) => {
+  setYilsonuYukleniyor(true)
+
+  // Tahakkuklar
+  const { data: thData } = await supabase
+    .from('tahakkuklar')
+    .select('tutar, durum, donem_ay')
+    .eq('donem_yil', yil)
+
+  const toplamTahakkuk = thData?.reduce((acc, t) => acc + Number(t.tutar), 0) || 0
+  const odenenTahakkuk = thData?.filter(t => t.durum === 'odendi').reduce((acc, t) => acc + Number(t.tutar), 0) || 0
+  const gecikmisTahakkuk = thData?.filter(t => t.durum === 'gecikti').reduce((acc, t) => acc + Number(t.tutar), 0) || 0
+
+  // Ödemeler
+  const { data: odemeData } = await supabase
+    .from('odemeler')
+    .select('tutar, odeme_tarihi')
+    .gte('odeme_tarihi', `${yil}-01-01`)
+    .lte('odeme_tarihi', `${yil}-12-31`)
+
+  const toplamOdeme = odemeData?.reduce((acc, o) => acc + Number(o.tutar), 0) || 0
+
+  // Aylık ödeme dağılımı
+  const aylikOdeme = Array(12).fill(0)
+  odemeData?.forEach((o: any) => {
+    const ay = new Date(o.odeme_tarihi).getMonth()
+    aylikOdeme[ay] += Number(o.tutar)
+  })
+
+  // Giderler
+  const { data: giderData } = await supabase
+    .from('giderler')
+    .select('tutar, kategori, gider_tarihi')
+    .gte('gider_tarihi', `${yil}-01-01`)
+    .lte('gider_tarihi', `${yil}-12-31`)
+
+  const toplamGider = giderData?.reduce((acc, g) => acc + Number(g.tutar), 0) || 0
+
+  // Aylık gider dağılımı
+  const aylikGider = Array(12).fill(0)
+  giderData?.forEach((g: any) => {
+    const ay = new Date(g.gider_tarihi).getMonth()
+    aylikGider[ay] += Number(g.tutar)
+  })
+
+  // Kategori bazlı gider
+  const kategoriGider: any = {}
+  giderData?.forEach((g: any) => {
+    if (!kategoriGider[g.kategori]) kategoriGider[g.kategori] = 0
+    kategoriGider[g.kategori] += Number(g.tutar)
+  })
+
+  // Bütçe
+  const { data: butceData } = await supabase
+    .from('butce').select('*').eq('yil', yil)
+  const toplamButce = butceData?.reduce((acc, b) => acc + Number(b.butce_tutar), 0) || 0
+
+  // Sakin istatistikleri
+  const { count: toplamSakin } = await supabase
+    .from('profiller').select('*', { count: 'exact', head: true }).eq('rol', 'sakin')
+  const { count: aktifDaire } = await supabase
+    .from('daireler').select('*', { count: 'exact', head: true }).eq('durum', 'dolu')
+
+  setYilsonuVeri({
+    toplamTahakkuk, odenenTahakkuk, gecikmisTahakkuk,
+    toplamOdeme, toplamGider, toplamButce,
+    tahsilatOrani: toplamTahakkuk > 0 ? Math.round(toplamOdeme / toplamTahakkuk * 100) : 0,
+    butceKullanim: toplamButce > 0 ? Math.round(toplamGider / toplamButce * 100) : 0,
+    netDurum: toplamOdeme - toplamGider,
+    aylikOdeme, aylikGider, kategoriGider,
+    toplamSakin, aktifDaire,
+    giderSayisi: giderData?.length || 0,
+    odemeSayisi: odemeData?.length || 0,
+  })
+
+  setYilsonuYukleniyor(false)
+}
+
+useEffect(() => {
+  if (aktifSayfa === 'yilsonu') yilsonuHesapla(yilsonuYil)
+}, [aktifSayfa, yilsonuYil])
 
   const daireEslestir = async (e: React.FormEvent) => {
   e.preventDefault()
@@ -463,6 +548,7 @@ const odemeYenile = async () => {
 	{ id: 'odemeler', ikon: '💰', etiket: 'Ödemeler' },
 	{ id: 'giderler', ikon: '💸', etiket: 'Giderler' },
 	{ id: 'butce', ikon: '📊', etiket: 'Bütçe Takibi' },
+	{ id: 'yilsonu', ikon: '📈', etiket: 'Yıl Sonu Raporu' },
   ]
 
   return (
@@ -1133,6 +1219,125 @@ const odemeYenile = async () => {
         </div>
       </div>
     </div>
+  </div>
+)}
+{/* YIL SONU RAPORU */}
+{aktifSayfa === 'yilsonu' && (
+  <div>
+    <h2 style={{ color: '#1a3c5e', marginBottom: '20px' }}>📈 Yıl Sonu Raporu</h2>
+
+    {/* Yıl Seçimi */}
+    <div style={{ background: '#fff', borderRadius: '12px', padding: '16px 20px', marginBottom: '20px', boxShadow: '0 2px 8px rgba(0,0,0,.06)', border: '1px solid #e5e7eb', display: 'flex', gap: '12px', alignItems: 'center' }}>
+      <label style={{ fontWeight: '700', fontSize: '.85rem', color: '#374151' }}>Yıl:</label>
+      <select value={yilsonuYil}
+        onChange={e => setYilsonuYil(parseInt(e.target.value))}
+        style={{ padding: '7px 12px', borderRadius: '8px', border: '1px solid #d1d5db', fontSize: '.85rem' }}>
+        {[2024,2025,2026,2027].map(y => <option key={y} value={y}>{y}</option>)}
+      </select>
+    </div>
+
+    {yilsonuYukleniyor ? (
+      <div style={{ padding: '60px', textAlign: 'center', color: '#6b7280' }}>Hesaplanıyor...</div>
+    ) : yilsonuVeri && (
+      <>
+        {/* Ana Özet */}
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '16px', marginBottom: '24px' }}>
+          {[
+            { label: 'Toplam Tahakkuk',  deger: yilsonuVeri.toplamTahakkuk,  renk: '#1a3c5e', ikon: '📋' },
+            { label: 'Toplam Tahsilat',  deger: yilsonuVeri.toplamOdeme,     renk: '#16a34a', ikon: '💰' },
+            { label: 'Toplam Gider',     deger: yilsonuVeri.toplamGider,     renk: '#dc2626', ikon: '💸' },
+            { label: 'Net Durum',        deger: yilsonuVeri.netDurum,        renk: yilsonuVeri.netDurum >= 0 ? '#16a34a' : '#dc2626', ikon: '📊' },
+            { label: 'Tahsilat Oranı',   deger: null,                        renk: yilsonuVeri.tahsilatOrani >= 90 ? '#16a34a' : '#d97706', ikon: '📈', yuzde: yilsonuVeri.tahsilatOrani },
+            { label: 'Bütçe Kullanımı', deger: null,                        renk: yilsonuVeri.butceKullanim > 90 ? '#dc2626' : '#16a34a', ikon: '🎯', yuzde: yilsonuVeri.butceKullanim },
+          ].map(k => (
+            <div key={k.label} style={{ background: '#fff', borderRadius: '12px', padding: '20px', boxShadow: '0 2px 8px rgba(0,0,0,.06)', border: '1px solid #e5e7eb', textAlign: 'center' }}>
+              <div style={{ fontSize: '1.4rem', marginBottom: '8px' }}>{k.ikon}</div>
+              <div style={{ color: '#6b7280', fontSize: '.75rem', fontWeight: '700', textTransform: 'uppercase', marginBottom: '6px' }}>{k.label}</div>
+              <div style={{ fontSize: '1.2rem', fontWeight: '800', color: k.renk }}>
+                {k.deger !== null ? Number(k.deger).toLocaleString('tr-TR', { minimumFractionDigits: 2 }) + ' ₺' : `%${k.yuzde}`}
+              </div>
+            </div>
+          ))}
+        </div>
+
+        {/* Aylık Tablo */}
+        <div style={{ background: '#fff', borderRadius: '12px', boxShadow: '0 2px 8px rgba(0,0,0,.06)', border: '1px solid #e5e7eb', overflow: 'hidden', marginBottom: '24px' }}>
+          <div style={{ background: '#1a3c5e', color: '#fff', padding: '12px 20px', fontWeight: '700' }}>
+            📅 Aylık Tahsilat / Gider — {yilsonuYil}
+          </div>
+          <div style={{ overflowX: 'auto' }}>
+            <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '.85rem' }}>
+              <thead>
+                <tr style={{ background: '#f8fafc' }}>
+                  {['Ay', 'Tahsilat', 'Gider', 'Net'].map(h => (
+                    <th key={h} style={{ padding: '10px 14px', textAlign: h === 'Ay' ? 'left' : 'right', color: '#6b7280', fontWeight: '700', fontSize: '.75rem', textTransform: 'uppercase', borderBottom: '2px solid #e5e7eb' }}>
+                      {h}
+                    </th>
+                  ))}
+                </tr>
+              </thead>
+              <tbody>
+                {Array.from({length:12},(_,i) => i).map(i => {
+                  const tahsilat = yilsonuVeri.aylikOdeme[i]
+                  const gider    = yilsonuVeri.aylikGider[i]
+                  const net      = tahsilat - gider
+                  if (tahsilat === 0 && gider === 0) return null
+                  return (
+                    <tr key={i} style={{ background: i % 2 === 0 ? '#fff' : '#f9fafb' }}>
+                      <td style={{ padding: '10px 14px', fontWeight: '600' }}>{ayAdi(i+1)}</td>
+                      <td style={{ padding: '10px 14px', textAlign: 'right', color: '#16a34a', fontWeight: '600' }}>
+                        {tahsilat > 0 ? tahsilat.toLocaleString('tr-TR', { minimumFractionDigits: 2 }) + ' ₺' : '—'}
+                      </td>
+                      <td style={{ padding: '10px 14px', textAlign: 'right', color: '#dc2626', fontWeight: '600' }}>
+                        {gider > 0 ? gider.toLocaleString('tr-TR', { minimumFractionDigits: 2 }) + ' ₺' : '—'}
+                      </td>
+                      <td style={{ padding: '10px 14px', textAlign: 'right', fontWeight: '700', color: net >= 0 ? '#16a34a' : '#dc2626' }}>
+                        {net.toLocaleString('tr-TR', { minimumFractionDigits: 2 })} ₺
+                      </td>
+                    </tr>
+                  )
+                })}
+                <tr style={{ background: '#f0f9ff', fontWeight: '800' }}>
+                  <td style={{ padding: '10px 14px', color: '#1a3c5e' }}>TOPLAM</td>
+                  <td style={{ padding: '10px 14px', textAlign: 'right', color: '#16a34a' }}>{yilsonuVeri.toplamOdeme.toLocaleString('tr-TR', { minimumFractionDigits: 2 })} ₺</td>
+                  <td style={{ padding: '10px 14px', textAlign: 'right', color: '#dc2626' }}>{yilsonuVeri.toplamGider.toLocaleString('tr-TR', { minimumFractionDigits: 2 })} ₺</td>
+                  <td style={{ padding: '10px 14px', textAlign: 'right', color: yilsonuVeri.netDurum >= 0 ? '#16a34a' : '#dc2626' }}>{yilsonuVeri.netDurum.toLocaleString('tr-TR', { minimumFractionDigits: 2 })} ₺</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+        {/* Gider Kategorileri */}
+        <div style={{ background: '#fff', borderRadius: '12px', boxShadow: '0 2px 8px rgba(0,0,0,.06)', border: '1px solid #e5e7eb', overflow: 'hidden' }}>
+          <div style={{ background: '#dc2626', color: '#fff', padding: '12px 20px', fontWeight: '700' }}>
+            💸 Gider Kategorileri — {yilsonuYil}
+          </div>
+          {Object.keys(yilsonuVeri.kategoriGider).length === 0 ? (
+            <div style={{ padding: '32px', textAlign: 'center', color: '#9ca3af' }}>Bu yıl gider kaydı yok.</div>
+          ) : Object.entries(yilsonuVeri.kategoriGider)
+            .sort(([,a]: any, [,b]: any) => b - a)
+            .map(([kat, tutar]: any, i) => {
+              const oran = yilsonuVeri.toplamGider > 0 ? Math.round(tutar / yilsonuVeri.toplamGider * 100) : 0
+              return (
+                <div key={kat} style={{ padding: '12px 20px', borderBottom: '1px solid #f3f4f6' }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '4px' }}>
+                    <span style={{ fontWeight: '600', color: '#374151' }}>{kat}</span>
+                    <span style={{ fontWeight: '700', color: '#dc2626' }}>
+                      {Number(tutar).toLocaleString('tr-TR', { minimumFractionDigits: 2 })} ₺
+                      <span style={{ color: '#9ca3af', fontWeight: '400', marginLeft: '8px' }}>%{oran}</span>
+                    </span>
+                  </div>
+                  <div style={{ background: '#f3f4f6', borderRadius: '4px', height: '6px' }}>
+                    <div style={{ background: '#dc2626', width: `${oran}%`, height: '100%', borderRadius: '4px' }} />
+                  </div>
+                </div>
+              )
+            })
+          }
+        </div>
+      </>
+    )}
   </div>
 )}
 
