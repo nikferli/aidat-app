@@ -4,7 +4,6 @@ import { useEffect, useState } from 'react'
 import { supabase } from '@/lib/supabase'
 import { useRouter } from 'next/navigation'
 
-// ── Yardımcı fonksiyonlar ──
 const paraFormat = (tutar: number) =>
   tutar.toLocaleString('tr-TR', { minimumFractionDigits: 2 }) + ' ₺'
 
@@ -22,7 +21,6 @@ const gecikFaizi = (tutar: number, sonOdemeTarihi: string, yillikOran = 12) => {
   return Math.round(tutar * (yillikOran / 100) / 365 * gun * 100) / 100
 }
 
-// ── Ödeme Geçmişi Component ──
 function OdemeGecmisi({ daireId }: { daireId: number }) {
   const [odemeler, setOdemeler] = useState<any[]>([])
   const [yukleniyor, setYukleniyor] = useState(true)
@@ -32,148 +30,55 @@ function OdemeGecmisi({ daireId }: { daireId: number }) {
     if (!daireId) return
     const yukle = async () => {
       setYukleniyor(true)
-
-      const { data: thData } = await supabase
-        .from('tahakkuklar')
-        .select('id, donem_yil, donem_ay, aidat_turleri(tur_adi)')
-        .eq('daire_id', daireId)
-
-      if (!thData || thData.length === 0) {
-        setOdemeler([])
-        setYukleniyor(false)
-        return
-      }
-
+      const { data: thData } = await supabase.from('tahakkuklar').select('id, donem_yil, donem_ay, aidat_turleri(tur_adi)').eq('daire_id', daireId)
+      if (!thData || thData.length === 0) { setOdemeler([]); setYukleniyor(false); return }
       const ids = thData.map((t: any) => t.id)
-      const { data: odemeData } = await supabase
-        .from('odemeler')
-        .select('*')
-        .in('tahakkuk_id', ids)
-        .order('odeme_tarihi', { ascending: false })
-
+      const { data: odemeData } = await supabase.from('odemeler').select('*').in('tahakkuk_id', ids).order('odeme_tarihi', { ascending: false })
       const thMap: any = {}
       thData.forEach((t: any) => { thMap[t.id] = t })
-
-      const liste = (odemeData || [])
-        .map((o: any) => ({ ...o, tahakkuk: thMap[o.tahakkuk_id] }))
-        .filter((o: any) =>
-          o.tahakkuk && new Date(o.odeme_tarihi).getFullYear() === yil
-        )
-
-      setOdemeler(liste)
+      setOdemeler((odemeData || []).map((o: any) => ({ ...o, tahakkuk: thMap[o.tahakkuk_id] })).filter((o: any) => o.tahakkuk && new Date(o.odeme_tarihi).getFullYear() === yil))
       setYukleniyor(false)
     }
     yukle()
   }, [daireId, yil])
 
-  const yontemler: any = {
-    nakit: 'Nakit', havale: 'Havale', eft: 'EFT',
-    kredi_karti: 'Kredi Kartı', diger: 'Diğer'
-  }
+  const yontemler: any = { nakit: 'Nakit', havale: 'Havale', eft: 'EFT', kredi_karti: 'Kredi Kartı', diger: 'Diğer' }
   const toplam = odemeler.reduce((acc, o) => acc + Number(o.tutar), 0)
 
-  if (yukleniyor) return (
-    <div style={{ padding: '40px', textAlign: 'center', color: '#6b7280' }}>
-      Yükleniyor...
-    </div>
-  )
+  if (yukleniyor) return <div style={{ padding: '40px', textAlign: 'center', color: '#6b7280' }}>Yükleniyor...</div>
 
   return (
     <div>
       <h2 style={{ color: '#1a3c5e', marginBottom: '20px' }}>🕐 Ödeme Geçmişim</h2>
-
-      <div style={{
-        background: '#fff', borderRadius: '12px', padding: '16px 20px',
-        marginBottom: '20px', boxShadow: '0 2px 8px rgba(0,0,0,.06)',
-        border: '1px solid #e5e7eb', display: 'flex',
-        justifyContent: 'space-between', alignItems: 'center',
-        flexWrap: 'wrap', gap: '12px'
-      }}>
+      <div style={{ background: '#fff', borderRadius: '12px', padding: '16px 20px', marginBottom: '20px', boxShadow: '0 2px 8px rgba(0,0,0,.06)', border: '1px solid #e5e7eb', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '12px' }}>
         <div>
-          <div style={{
-            color: '#6b7280', fontSize: '.75rem', fontWeight: '700',
-            textTransform: 'uppercase', letterSpacing: '.05em'
-          }}>
-            Toplam Ödenen ({yil})
-          </div>
-          <div style={{ fontSize: '1.4rem', fontWeight: '800', color: '#16a34a' }}>
-            {paraFormat(toplam)}
-          </div>
+          <div style={{ color: '#6b7280', fontSize: '.75rem', fontWeight: '700', textTransform: 'uppercase' }}>Toplam Ödenen ({yil})</div>
+          <div style={{ fontSize: '1.4rem', fontWeight: '800', color: '#16a34a' }}>{paraFormat(toplam)}</div>
         </div>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-          <label style={{ fontSize: '.85rem', color: '#6b7280', fontWeight: '600' }}>
-            Yıl:
-          </label>
-          <select value={yil} onChange={e => setYil(parseInt(e.target.value))}
-            style={{
-              padding: '6px 12px', borderRadius: '8px',
-              border: '1px solid #d1d5db', fontSize: '.85rem'
-            }}>
-            {[2026, 2025, 2024, 2023].map(y => (
-              <option key={y} value={y}>{y}</option>
-            ))}
-          </select>
-        </div>
+        <select value={yil} onChange={e => setYil(parseInt(e.target.value))} style={{ padding: '6px 12px', borderRadius: '8px', border: '1px solid #d1d5db', fontSize: '.85rem' }}>
+          {[2024,2025,2026,2027].map(y => <option key={y} value={y}>{y}</option>)}
+        </select>
       </div>
-
       {odemeler.length === 0 ? (
-        <div style={{
-          background: '#f8fafc', borderRadius: '12px', padding: '40px',
-          textAlign: 'center', color: '#6b7280'
-        }}>
-          Bu yılda ödeme kaydı bulunamadı.
-        </div>
+        <div style={{ background: '#f8fafc', borderRadius: '12px', padding: '40px', textAlign: 'center', color: '#6b7280' }}>Bu yılda ödeme kaydı bulunamadı.</div>
       ) : (
-        <div style={{
-          background: '#fff', borderRadius: '12px',
-          boxShadow: '0 2px 8px rgba(0,0,0,.06)',
-          border: '1px solid #e5e7eb', overflow: 'hidden'
-        }}>
-          <div style={{
-            background: '#16a34a', color: '#fff',
-            padding: '12px 20px', fontWeight: '700'
-          }}>
-            🕐 Ödeme Kayıtlarım
-          </div>
+        <div style={{ background: '#fff', borderRadius: '12px', boxShadow: '0 2px 8px rgba(0,0,0,.06)', border: '1px solid #e5e7eb', overflow: 'hidden' }}>
+          <div style={{ background: '#16a34a', color: '#fff', padding: '12px 20px', fontWeight: '700' }}>🕐 Ödeme Kayıtlarım</div>
           {odemeler.map((o, i) => (
-            <div key={o.id} style={{
-              padding: '14px 20px',
-              borderBottom: i < odemeler.length - 1 ? '1px solid #f3f4f6' : 'none',
-              display: 'flex', justifyContent: 'space-between',
-              alignItems: 'center', gap: '12px', flexWrap: 'wrap'
-            }}>
+            <div key={o.id} style={{ padding: '14px 20px', borderBottom: i < odemeler.length - 1 ? '1px solid #f3f4f6' : 'none', display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '12px', flexWrap: 'wrap' }}>
               <div>
-                <div style={{ fontWeight: '700', color: '#374151' }}>
-                  {o.tahakkuk?.aidat_turleri?.tur_adi}
-                </div>
-                <div style={{ color: '#6b7280', fontSize: '.8rem' }}>
-                  {ayAdi(o.tahakkuk?.donem_ay)} {o.tahakkuk?.donem_yil}
-                </div>
-                <div style={{ color: '#9ca3af', fontSize: '.75rem' }}>
-                  {new Date(o.odeme_tarihi).toLocaleDateString('tr-TR')}
-                  &nbsp;·&nbsp;
-                  {yontemler[o.odeme_yontemi] || o.odeme_yontemi}
-                </div>
+                <div style={{ fontWeight: '700', color: '#374151' }}>{o.tahakkuk?.aidat_turleri?.tur_adi}</div>
+                <div style={{ color: '#6b7280', fontSize: '.8rem' }}>{ayAdi(o.tahakkuk?.donem_ay)} {o.tahakkuk?.donem_yil}</div>
+                <div style={{ color: '#9ca3af', fontSize: '.75rem' }}>{new Date(o.odeme_tarihi).toLocaleDateString('tr-TR')} · {yontemler[o.odeme_yontemi] || o.odeme_yontemi}</div>
               </div>
               <div style={{ textAlign: 'right' }}>
-                <div style={{ fontWeight: '800', fontSize: '1.1rem', color: '#16a34a' }}>
-                  {paraFormat(Number(o.tutar))}
-                </div>
-                <span style={{
-                  background: '#dcfce7', color: '#16a34a',
-                  padding: '1px 8px', borderRadius: '20px',
-                  fontSize: '.72rem', fontWeight: '700'
-                }}>✓ Ödendi</span>
+                <div style={{ fontWeight: '800', fontSize: '1.1rem', color: '#16a34a' }}>{paraFormat(Number(o.tutar))}</div>
+                <span style={{ background: '#dcfce7', color: '#16a34a', padding: '1px 8px', borderRadius: '20px', fontSize: '.72rem', fontWeight: '700' }}>✓ Ödendi</span>
               </div>
             </div>
           ))}
-          <div style={{
-            padding: '14px 20px', background: '#f0fdf4',
-            display: 'flex', justifyContent: 'space-between',
-            fontWeight: '800', color: '#16a34a', fontSize: '1rem'
-          }}>
-            <span>Toplam</span>
-            <span>{paraFormat(toplam)}</span>
+          <div style={{ padding: '14px 20px', background: '#f0fdf4', display: 'flex', justifyContent: 'space-between', fontWeight: '800', color: '#16a34a' }}>
+            <span>Toplam</span><span>{paraFormat(toplam)}</span>
           </div>
         </div>
       )}
@@ -181,770 +86,119 @@ function OdemeGecmisi({ daireId }: { daireId: number }) {
   )
 }
 
-// ── Ekstre Component ──
-function Ekstre({ daireId, kullanici }: { daireId: number, kullanici: any }) {
-  const [hareketler, setHareketler] = useState<any[]>([])
-  const [yukleniyor, setYukleniyor] = useState(true)
-  const [filtre, setFiltre] = useState({
-    yil_bas: new Date().getFullYear(), ay_bas: 1,
-    yil_bitis: new Date().getFullYear(), ay_bitis: new Date().getMonth() + 1
-  })
-
-  const yukle = async () => {
-    if (!daireId) return
-    setYukleniyor(true)
-
-    const { data: thData } = await supabase
-      .from('tahakkuklar')
-      .select('*, aidat_turleri(tur_adi)')
-      .eq('daire_id', daireId)
-      .gte('donem_yil', filtre.yil_bas)
-      .lte('donem_yil', filtre.yil_bitis)
-      .order('donem_yil').order('donem_ay')
-
-    if (!thData || thData.length === 0) {
-      setHareketler([])
-      setYukleniyor(false)
-      return
-    }
-
-    // Dönem filtresi
-    const filtreli = thData.filter((t: any) => {
-      const donem = t.donem_yil * 100 + t.donem_ay
-      const bas   = filtre.yil_bas * 100 + filtre.ay_bas
-      const bitis = filtre.yil_bitis * 100 + filtre.ay_bitis
-      return donem >= bas && donem <= bitis
-    })
-
-    // Ödemeleri al
-    const ids = filtreli.map((t: any) => t.id)
-    const { data: odemeData } = await supabase
-      .from('odemeler').select('tahakkuk_id, tutar').in('tahakkuk_id', ids)
-
-    const odemeMap: any = {}
-    odemeData?.forEach((o: any) => {
-      if (!odemeMap[o.tahakkuk_id]) odemeMap[o.tahakkuk_id] = 0
-      odemeMap[o.tahakkuk_id] += Number(o.tutar)
-    })
-
-    const zengin = filtreli.map((t: any) => ({
-      ...t,
-      odenen: odemeMap[t.id] || 0,
-      kalan: Math.max(0, Number(t.tutar) - (odemeMap[t.id] || 0))
-    }))
-
-    setHareketler(zengin)
-    setYukleniyor(false)
-  }
-
-  useEffect(() => { yukle() }, [daireId])
-
-  const toplamTahakkuk = hareketler.reduce((acc, h) => acc + Number(h.tutar), 0)
-  const toplamOdenen   = hareketler.reduce((acc, h) => acc + h.odenen, 0)
-  const toplamKalan    = hareketler.reduce((acc, h) => acc + h.kalan, 0)
-  const tahsilatOrani  = toplamTahakkuk > 0 ? Math.round(toplamOdenen / toplamTahakkuk * 100) : 100
-
-  const yazdir = () => {
-    const eksNo = 'EKS-' + Date.now()
-    const tarih = new Date().toLocaleDateString('tr-TR')
-    const satirlar = hareketler.map(h => {
-      const durumText = h.durum === 'odendi' ? '✓ Ödendi' : h.durum === 'gecikti' ? '⚠ Gecikti' : h.odenen > 0 ? '◑ Kısmi' : '○ Bekliyor'
-      return `<tr>
-        <td>${ayAdi(h.donem_ay)} ${h.donem_yil}</td>
-        <td>${h.aidat_turleri?.tur_adi}</td>
-        <td>${h.son_odeme_tarihi ? new Date(h.son_odeme_tarihi).toLocaleDateString('tr-TR') : '—'}</td>
-        <td style="text-align:right">${Number(h.tutar).toLocaleString('tr-TR',{minimumFractionDigits:2})} ₺</td>
-        <td style="text-align:right;color:${h.odenen>0?'#16a34a':'#6b7280'}">${h.odenen > 0 ? Number(h.odenen).toLocaleString('tr-TR',{minimumFractionDigits:2})+' ₺' : '—'}</td>
-        <td style="text-align:right;color:${h.kalan>0?'#dc2626':'#6b7280'}">${h.kalan > 0 ? Number(h.kalan).toLocaleString('tr-TR',{minimumFractionDigits:2})+' ₺' : '—'}</td>
-        <td>${durumText}</td>
-      </tr>`
-    }).join('')
-
-    const html = `<!DOCTYPE html><html lang="tr"><head><meta charset="UTF-8">
-    <title>Aidat Ekstresi</title>
-    <style>
-      body{font-family:'Segoe UI',sans-serif;font-size:12px;color:#1f2937;margin:0;padding:0}
-      .wrap{max-width:780px;margin:40px auto}
-      .header{background:linear-gradient(135deg,#1a3c5e,#2e7d9f);color:#fff;padding:24px 32px;border-radius:12px 12px 0 0;display:flex;justify-content:space-between}
-      .header h2{margin:0;font-size:1.1rem}.header .meta{text-align:right;font-size:.75rem;opacity:.85}
-      .info{display:grid;grid-template-columns:repeat(auto-fit, minmax(300px, 1fr));gap:0;background:#f8fafc;border:1px solid #e5e7eb;border-top:none;padding:16px 32px}
-      .info-item .label{font-size:.7rem;color:#6b7280;font-weight:600;text-transform:uppercase}
-      .info-item .value{font-weight:700;font-size:.9rem}
-      .donem{background:#1a3c5e;color:#fff;text-align:center;padding:8px;font-weight:700;font-size:.85rem}
-      table{width:100%;border-collapse:collapse}
-      th{background:#f4f6fb;padding:9px 12px;font-size:.72rem;text-transform:uppercase;color:#6b7280;border-bottom:2px solid #e5e7eb;text-align:left}
-      td{padding:8px 12px;border-bottom:1px solid #f3f4f6;font-size:.85rem}
-      tr:nth-child(even) td{background:#f9fafb}
-      .ozet{background:#f8fafc;border:1px solid #e5e7eb;border-top:none;padding:16px 32px;display:flex;justify-content:flex-end}
-      .ozet table{width:280px}.ozet td{padding:4px 8px;font-size:.88rem}
-      .footer{border:1px solid #e5e7eb;border-top:none;border-radius:0 0 12px 12px;padding:16px 32px;display:flex;justify-content:space-between;align-items:flex-end}
-      .imza{border-top:1px solid #374151;width:160px;text-align:center;padding-top:4px;font-size:.72rem;color:#6b7280;margin-top:40px}
-      .note{font-size:.72rem;color:#9ca3af;text-align:right}
-      @media print{@page{size:A4;margin:10mm 12mm}.no-print{display:none}}
-    </style></head><body>
-    <div class="no-print" style="position:fixed;top:12px;right:16px;display:flex;gap:8px">
-      <button onclick="window.close()" style="padding:7px 16px;background:#e5e7eb;border:none;border-radius:7px;cursor:pointer;font-weight:700">← Geri</button>
-      <button onclick="window.print()" style="padding:7px 16px;background:#1a3c5e;color:#fff;border:none;border-radius:7px;cursor:pointer;font-weight:700">🖨️ Yazdır / PDF</button>
-    </div>
-    <div class="wrap">
-      <div class="header">
-        <div><h2>🏢 Aidat Yönetim Sistemi</h2><small>Resmi Aidat Ekstresi</small></div>
-        <div class="meta"><strong>Ekstre No: ${eksNo}</strong><br>Düzenleme: ${tarih}</div>
-      </div>
-      <div class="info">
-        <div class="info-item"><div class="label">Ad Soyad</div><div class="value">${kullanici?.ad_soyad}</div></div>
-        <div class="info-item"><div class="label">Telefon</div><div class="value">${kullanici?.telefon || '—'}</div></div>
-      </div>
-      <div class="donem">EKSTRE DÖNEMİ: ${ayAdi(filtre.ay_bas)} ${filtre.yil_bas} — ${ayAdi(filtre.ay_bitis)} ${filtre.yil_bitis}</div>
-      <table>
-        <thead><tr><th>Dönem</th><th>Aidat Türü</th><th>Son Ödeme</th><th style="text-align:right">Tahakkuk</th><th style="text-align:right">Ödenen</th><th style="text-align:right">Kalan</th><th>Durum</th></tr></thead>
-        <tbody>${satirlar}</tbody>
-      </table>
-      <div class="ozet"><table>
-        <tr><td>Toplam Tahakkuk:</td><td style="text-align:right;font-weight:700">${toplamTahakkuk.toLocaleString('tr-TR',{minimumFractionDigits:2})} ₺</td></tr>
-        <tr><td>Toplam Ödenen:</td><td style="text-align:right;font-weight:700;color:#16a34a">${toplamOdenen.toLocaleString('tr-TR',{minimumFractionDigits:2})} ₺</td></tr>
-        <tr><td>Kalan Borç:</td><td style="text-align:right;font-weight:700;color:#dc2626">${toplamKalan.toLocaleString('tr-TR',{minimumFractionDigits:2})} ₺</td></tr>
-        <tr style="border-top:2px solid #1a3c5e"><td><strong>Tahsilat Oranı:</strong></td><td style="text-align:right;font-weight:700">%${tahsilatOrani}</td></tr>
-      </table></div>
-      <div class="footer">
-        <div class="imza">Yönetici İmzası / Kaşe</div>
-        <div class="note">Aidat Yönetim Sistemi<br>Ekstre No: ${eksNo}<br>${tarih}</div>
-      </div>
-    </div></body></html>`
-
-    const w = window.open('', '_blank')
-    if (w) { w.document.write(html); w.document.close() }
-  }
-
-  if (yukleniyor) return (
-    <div style={{ padding: '40px', textAlign: 'center', color: '#6b7280' }}>Yükleniyor...</div>
-  )
-
-  return (
-    <div>
-      <h2 style={{ color: '#1a3c5e', marginBottom: '20px' }}>📄 Aidat Ekstresi</h2>
-
-      {/* Dönem Filtresi */}
-      <div style={{ background: '#fff', borderRadius: '12px', padding: '16px 20px', marginBottom: '20px', boxShadow: '0 2px 8px rgba(0,0,0,.06)', border: '1px solid #e5e7eb' }}>
-        <div style={{ fontWeight: '700', fontSize: '.85rem', color: '#374151', marginBottom: '12px' }}>
-          📅 Dönem Seçin
-        </div>
-        <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap', alignItems: 'flex-end' }}>
-          {[
-            { label: 'Başlangıç Yılı', key: 'yil_bas', type: 'yil' },
-            { label: 'Başlangıç Ayı', key: 'ay_bas', type: 'ay' },
-            { label: 'Bitiş Yılı', key: 'yil_bitis', type: 'yil' },
-            { label: 'Bitiş Ayı', key: 'ay_bitis', type: 'ay' },
-          ].map(f => (
-            <div key={f.key} style={{ flex: 1, minWidth: '120px' }}>
-              <label style={{ display: 'block', fontWeight: '600', fontSize: '.78rem', color: '#6b7280', marginBottom: '4px' }}>{f.label}</label>
-              {f.type === 'yil' ? (
-                <select value={(filtre as any)[f.key]}
-                  onChange={e => setFiltre(prev => ({ ...prev, [f.key]: parseInt(e.target.value) }))}
-                  style={{ width: '100%', padding: '7px 10px', borderRadius: '8px', border: '1px solid #d1d5db', fontSize: '.85rem' }}>
-                  {[2024,2025,2026,2027].map(y => <option key={y} value={y}>{y}</option>)}
-                </select>
-              ) : (
-                <select value={(filtre as any)[f.key]}
-                  onChange={e => setFiltre(prev => ({ ...prev, [f.key]: parseInt(e.target.value) }))}
-                  style={{ width: '100%', padding: '7px 10px', borderRadius: '8px', border: '1px solid #d1d5db', fontSize: '.85rem' }}>
-                  {Array.from({length:12},(_,i) => i+1).map(m => <option key={m} value={m}>{ayAdi(m)}</option>)}
-                </select>
-              )}
-            </div>
-          ))}
-          <button onClick={yukle}
-            style={{ padding: '9px 20px', background: '#1a3c5e', color: '#fff', border: 'none', borderRadius: '8px', cursor: 'pointer', fontWeight: '700', fontSize: '.85rem', flexShrink: 0 }}>
-            🔍 Görüntüle
-          </button>
-        </div>
-
-        {/* Hızlı Seçimler */}
-        <div style={{ display: 'flex', gap: '8px', marginTop: '10px', flexWrap: 'wrap' }}>
-          {[
-            { label: 'Bu Yıl', yil_bas: new Date().getFullYear(), ay_bas: 1, yil_bitis: new Date().getFullYear(), ay_bitis: 12 },
-            { label: 'Bu Ay', yil_bas: new Date().getFullYear(), ay_bas: new Date().getMonth()+1, yil_bitis: new Date().getFullYear(), ay_bitis: new Date().getMonth()+1 },
-            { label: 'Geçen Yıl', yil_bas: new Date().getFullYear()-1, ay_bas: 1, yil_bitis: new Date().getFullYear()-1, ay_bitis: 12 },
-          ].map(s => (
-            <button key={s.label}
-              onClick={() => { setFiltre(s); setTimeout(yukle, 100) }}
-              style={{ padding: '5px 12px', background: '#f3f4f6', color: '#374151', border: '1px solid #d1d5db', borderRadius: '20px', cursor: 'pointer', fontSize: '.78rem', fontWeight: '600' }}>
-              {s.label}
-            </button>
-          ))}
-        </div>
-      </div>
-
-      {/* Özet Kartlar */}
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '12px', marginBottom: '20px' }}>
-        {[
-          { label: 'Toplam Tahakkuk', deger: toplamTahakkuk, renk: '#1a3c5e' },
-          { label: 'Toplam Ödenen',   deger: toplamOdenen,   renk: '#16a34a' },
-          { label: 'Kalan Borç',      deger: toplamKalan,    renk: toplamKalan > 0 ? '#dc2626' : '#16a34a' },
-          { label: 'Tahsilat Oranı',  deger: null,           renk: tahsilatOrani >= 90 ? '#16a34a' : '#d97706' },
-        ].map(k => (
-          <div key={k.label} style={{ background: '#fff', borderRadius: '12px', padding: '16px', boxShadow: '0 2px 8px rgba(0,0,0,.06)', border: '1px solid #e5e7eb', textAlign: 'center' }}>
-            <div style={{ color: '#6b7280', fontSize: '.72rem', fontWeight: '700', textTransform: 'uppercase', marginBottom: '4px' }}>{k.label}</div>
-            <div style={{ fontSize: '1.1rem', fontWeight: '800', color: k.renk }}>
-              {k.deger !== null ? Number(k.deger).toLocaleString('tr-TR', { minimumFractionDigits: 2 }) + ' ₺' : `%${tahsilatOrani}`}
-            </div>
-          </div>
-        ))}
-      </div>
-
-      {/* Tablo */}
-      <div style={{ background: '#fff', borderRadius: '12px', boxShadow: '0 2px 8px rgba(0,0,0,.06)', border: '1px solid #e5e7eb', overflow: 'hidden' }}>
-        <div style={{ background: '#1a3c5e', color: '#fff', padding: '12px 20px', fontWeight: '700', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-          <span>📄 {ayAdi(filtre.ay_bas)} {filtre.yil_bas} — {ayAdi(filtre.ay_bitis)} {filtre.yil_bitis} Ekstresi</span>
-          {hareketler.length > 0 && (
-            <button onClick={yazdir}
-              style={{ background: 'rgba(255,255,255,.2)', border: '1px solid rgba(255,255,255,.4)', color: '#fff', padding: '5px 12px', borderRadius: '8px', cursor: 'pointer', fontSize: '.8rem', fontWeight: '700' }}>
-              🖨️ Yazdır / PDF
-            </button>
-          )}
-        </div>
-
-        {hareketler.length === 0 ? (
-          <div style={{ padding: '40px', textAlign: 'center', color: '#9ca3af' }}>
-            Bu dönemde tahakkuk kaydı bulunamadı.
-          </div>
-        ) : (
-          <>
-            <div style={{ overflowX: 'auto' }}>
-              <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '.85rem' }}>
-                <thead>
-                  <tr style={{ background: '#f8fafc' }}>
-                    {['Dönem','Aidat Türü','Son Ödeme','Tahakkuk','Ödenen','Kalan','Durum'].map(h => (
-                      <th key={h} style={{ padding: '10px 14px', textAlign: h === 'Dönem' || h === 'Aidat Türü' || h === 'Son Ödeme' || h === 'Durum' ? 'left' : 'right', color: '#6b7280', fontWeight: '700', fontSize: '.75rem', textTransform: 'uppercase', borderBottom: '2px solid #e5e7eb' }}>
-                        {h}
-                      </th>
-                    ))}
-                  </tr>
-                </thead>
-                <tbody>
-                  {hareketler.map((h, i) => {
-                    const durumText = h.durum === 'odendi' ? '✓ Ödendi' : h.durum === 'gecikti' ? '⚠ Gecikti' : h.odenen > 0 ? '◑ Kısmi' : '○ Bekliyor'
-                    const durumRenk = h.durum === 'odendi' ? '#dcfce7|#166534' : h.durum === 'gecikti' ? '#fee2e2|#991b1b' : h.odenen > 0 ? '#fef3c7|#92400e' : '#f3f4f6|#6b7280'
-                    const [bg, fg] = durumRenk.split('|')
-                    return (
-                      <tr key={h.id} style={{ background: i % 2 === 0 ? '#fff' : '#f9fafb' }}>
-                        <td style={{ padding: '10px 14px', fontWeight: '600' }}>{ayAdi(h.donem_ay)} {h.donem_yil}</td>
-                        <td style={{ padding: '10px 14px' }}>{h.aidat_turleri?.tur_adi}</td>
-                        <td style={{ padding: '10px 14px', color: h.son_odeme_tarihi && new Date(h.son_odeme_tarihi) < new Date() && h.durum !== 'odendi' ? '#dc2626' : '#6b7280' }}>
-                          {h.son_odeme_tarihi ? new Date(h.son_odeme_tarihi).toLocaleDateString('tr-TR') : '—'}
-                        </td>
-                        <td style={{ padding: '10px 14px', textAlign: 'right' }}>{Number(h.tutar).toLocaleString('tr-TR', { minimumFractionDigits: 2 })} ₺</td>
-                        <td style={{ padding: '10px 14px', textAlign: 'right', color: h.odenen > 0 ? '#16a34a' : '#6b7280' }}>
-                          {h.odenen > 0 ? Number(h.odenen).toLocaleString('tr-TR', { minimumFractionDigits: 2 }) + ' ₺' : '—'}
-                        </td>
-                        <td style={{ padding: '10px 14px', textAlign: 'right', color: h.kalan > 0 ? '#dc2626' : '#6b7280', fontWeight: h.kalan > 0 ? '700' : '400' }}>
-                          {h.kalan > 0 ? Number(h.kalan).toLocaleString('tr-TR', { minimumFractionDigits: 2 }) + ' ₺' : '—'}
-                        </td>
-                        <td style={{ padding: '10px 14px' }}>
-                          <span style={{ background: bg, color: fg, padding: '2px 8px', borderRadius: '20px', fontSize: '.72rem', fontWeight: '700' }}>
-                            {durumText}
-                          </span>
-                        </td>
-                      </tr>
-                    )
-                  })}
-                  <tr style={{ background: '#f0f9ff', fontWeight: '800' }}>
-                    <td colSpan={3} style={{ padding: '10px 14px', textAlign: 'right', color: '#1a3c5e' }}>TOPLAM:</td>
-                    <td style={{ padding: '10px 14px', textAlign: 'right', color: '#1a3c5e' }}>{toplamTahakkuk.toLocaleString('tr-TR', { minimumFractionDigits: 2 })} ₺</td>
-                    <td style={{ padding: '10px 14px', textAlign: 'right', color: '#16a34a' }}>{toplamOdenen.toLocaleString('tr-TR', { minimumFractionDigits: 2 })} ₺</td>
-                    <td style={{ padding: '10px 14px', textAlign: 'right', color: toplamKalan > 0 ? '#dc2626' : '#16a34a' }}>{toplamKalan.toLocaleString('tr-TR', { minimumFractionDigits: 2 })} ₺</td>
-                    <td></td>
-                  </tr>
-                </tbody>
-              </table>
-            </div>
-          </>
-        )}
-      </div>
-    </div>
-  )
-}
-// ── Profil Component ──
-function Profil({ kullanici, setKullanici }: { kullanici: any, setKullanici: any }) {
-  const [form, setForm] = useState({
-    ad_soyad: kullanici?.ad_soyad || '',
-    telefon:  kullanici?.telefon  || '',
-  })
-  const [sifre, setSifre] = useState({
-    mevcut: '', yeni: '', yeni2: ''
-  })
-  const [mesaj, setMesaj]           = useState<any>(null)
-  const [yukleniyor, setYukleniyor] = useState(false)
-  const [istatistik, setIstatistik] = useState<any>(null)
-
-  useEffect(() => {
-    const yukle = async () => {
-      // Ödeme özeti
-      const { data: { session } } = await supabase.auth.getSession()
-      if (!session) return
-
-      const { data: daireData } = await supabase
-        .from('daireler').select('id')
-        .eq('kullanici_id', session.user.id).single()
-
-      if (daireData) {
-        const { data: tahakkuklar } = await supabase
-          .from('tahakkuklar').select('id, tutar, durum')
-          .eq('daire_id', daireData.id)
-
-        const ids = tahakkuklar?.map((t: any) => t.id) || []
-        let toplamOdenen = 0
-        let odemeSayisi = 0
-
-        if (ids.length > 0) {
-          const { data: odemeler } = await supabase
-            .from('odemeler').select('tutar').in('tahakkuk_id', ids)
-          toplamOdenen = odemeler?.reduce((acc, o) => acc + Number(o.tutar), 0) || 0
-          odemeSayisi  = odemeler?.length || 0
-        }
-
-        const toplamBorc = tahakkuklar
-          ?.filter((t: any) => t.durum !== 'odendi')
-          .reduce((acc: number, t: any) => acc + Number(t.tutar), 0) || 0
-
-        setIstatistik({ odemeSayisi, toplamOdenen, toplamBorc })
-      }
-    }
-    yukle()
-  }, [])
-
-  const kaydet = async (e: React.FormEvent) => {
-    e.preventDefault()
-    setYukleniyor(true)
-    setMesaj(null)
-
-    // Şifre kontrolü
-    if (sifre.yeni && sifre.yeni !== sifre.yeni2) {
-      setMesaj({ tip: 'hata', metin: 'Yeni şifreler eşleşmiyor.' })
-      setYukleniyor(false)
-      return
-    }
-    if (sifre.yeni && sifre.yeni.length < 6) {
-      setMesaj({ tip: 'hata', metin: 'Şifre en az 6 karakter olmalıdır.' })
-      setYukleniyor(false)
-      return
-    }
-
-    // Profil güncelle
-    const { error: profilHata } = await supabase
-      .from('profiller')
-      .update({ ad_soyad: form.ad_soyad, telefon: form.telefon })
-      .eq('id', kullanici.id)
-
-    if (profilHata) {
-      setMesaj({ tip: 'hata', metin: profilHata.message })
-      setYukleniyor(false)
-      return
-    }
-
-    // Şifre değiştir
-    if (sifre.yeni) {
-      const { error: sifreHata } = await supabase.auth.updateUser({
-        password: sifre.yeni
-      })
-      if (sifreHata) {
-        setMesaj({ tip: 'hata', metin: 'Şifre güncellenemedi: ' + sifreHata.message })
-        setYukleniyor(false)
-        return
-      }
-    }
-
-    setKullanici((k: any) => ({ ...k, ad_soyad: form.ad_soyad, telefon: form.telefon }))
-    setSifre({ mevcut: '', yeni: '', yeni2: '' })
-    setMesaj({ tip: 'basari', metin: 'Profiliniz başarıyla güncellendi.' })
-    setYukleniyor(false)
-  }
-
-  return (
-    <div>
-      <h2 style={{ color: '#1a3c5e', marginBottom: '20px' }}>👤 Profilim</h2>
-
-      <div style={{ display: 'grid', gridTemplateColumns: '1fr 2fr', gap: '20px', alignItems: 'flex-start' }}>
-
-        {/* Sol: Profil Kartı */}
-        <div style={{ background: '#fff', borderRadius: '12px', padding: '24px', boxShadow: '0 2px 8px rgba(0,0,0,.06)', border: '1px solid #e5e7eb', textAlign: 'center' }}>
-          {/* Avatar */}
-          <div style={{ width: '90px', height: '90px', borderRadius: '50%', background: '#1a3c5e', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 12px', fontSize: '2.2rem', color: '#fff', fontWeight: '800' }}>
-            {kullanici?.ad_soyad?.charAt(0)?.toUpperCase()}
-          </div>
-          <div style={{ fontWeight: '800', fontSize: '1.1rem', color: '#1a3c5e' }}>{kullanici?.ad_soyad}</div>
-          <div style={{ color: '#6b7280', fontSize: '.82rem', marginBottom: '16px' }}>{kullanici?.telefon || 'Telefon yok'}</div>
-
-          {istatistik && (
-            <>
-              <hr style={{ margin: '12px 0' }} />
-              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))', gap: '8px' }}>
-                <div style={{ textAlign: 'center' }}>
-                  <div style={{ fontWeight: '800', fontSize: '1.2rem', color: '#16a34a' }}>{istatistik.odemeSayisi}</div>
-                  <div style={{ color: '#6b7280', fontSize: '.75rem' }}>Ödeme</div>
-                </div>
-                <div style={{ textAlign: 'center' }}>
-                  <div style={{ fontWeight: '800', fontSize: '1rem', color: istatistik.toplamBorc > 0 ? '#dc2626' : '#16a34a' }}>
-                    {Number(istatistik.toplamBorc).toLocaleString('tr-TR', { minimumFractionDigits: 0 })} ₺
-                  </div>
-                  <div style={{ color: '#6b7280', fontSize: '.75rem' }}>Borç</div>
-                </div>
-              </div>
-            </>
-          )}
-        </div>
-
-        {/* Sağ: Form */}
-        <div>
-          {mesaj && (
-            <div style={{
-              background: mesaj.tip === 'basari' ? '#dcfce7' : '#fee2e2',
-              color: mesaj.tip === 'basari' ? '#166534' : '#991b1b',
-              border: `1px solid ${mesaj.tip === 'basari' ? '#86efac' : '#fca5a5'}`,
-              borderRadius: '8px', padding: '12px 16px',
-              marginBottom: '16px', fontSize: '.85rem', fontWeight: '600'
-            }}>
-              {mesaj.metin}
-            </div>
-          )}
-
-          <form onSubmit={kaydet}>
-            {/* Kişisel Bilgiler */}
-            <div style={{ background: '#fff', borderRadius: '12px', boxShadow: '0 2px 8px rgba(0,0,0,.06)', border: '1px solid #e5e7eb', overflow: 'hidden', marginBottom: '16px' }}>
-              <div style={{ background: '#f8fafc', padding: '12px 20px', fontWeight: '700', fontSize: '.9rem', borderBottom: '1px solid #e5e7eb' }}>
-                👤 Kişisel Bilgiler
-              </div>
-              <div style={{ padding: '20px' }}>
-                <div style={{ marginBottom: '14px' }}>
-                  <label style={{ display: 'block', fontWeight: '700', fontSize: '.82rem', color: '#374151', marginBottom: '6px' }}>Ad Soyad</label>
-                  <input type="text" required value={form.ad_soyad}
-                    onChange={e => setForm(f => ({ ...f, ad_soyad: e.target.value }))}
-                    style={{ width: '100%', padding: '9px 12px', borderRadius: '8px', border: '1px solid #d1d5db', fontSize: '.85rem', boxSizing: 'border-box' }} />
-                </div>
-                <div>
-                  <label style={{ display: 'block', fontWeight: '700', fontSize: '.82rem', color: '#374151', marginBottom: '6px' }}>Telefon</label>
-                  <input type="text" value={form.telefon}
-                    onChange={e => setForm(f => ({ ...f, telefon: e.target.value }))}
-                    placeholder="0500..."
-                    style={{ width: '100%', padding: '9px 12px', borderRadius: '8px', border: '1px solid #d1d5db', fontSize: '.85rem', boxSizing: 'border-box' }} />
-                </div>
-              </div>
-            </div>
-
-            {/* Şifre Değiştir */}
-            <div style={{ background: '#fff', borderRadius: '12px', boxShadow: '0 2px 8px rgba(0,0,0,.06)', border: '1px solid #e5e7eb', overflow: 'hidden', marginBottom: '16px' }}>
-              <div style={{ background: '#f8fafc', padding: '12px 20px', fontWeight: '700', fontSize: '.9rem', borderBottom: '1px solid #e5e7eb' }}>
-                🔒 Şifre Değiştir <span style={{ color: '#9ca3af', fontWeight: '400', fontSize: '.8rem' }}>(boş bırakırsanız değişmez)</span>
-              </div>
-              <div style={{ padding: '20px' }}>
-                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))', gap: '12px' }}>
-                  <div>
-                    <label style={{ display: 'block', fontWeight: '700', fontSize: '.82rem', color: '#374151', marginBottom: '6px' }}>Yeni Şifre</label>
-                    <input type="password" value={sifre.yeni} minLength={6}
-                      onChange={e => setSifre(s => ({ ...s, yeni: e.target.value }))}
-                      placeholder="En az 6 karakter"
-                      style={{ width: '100%', padding: '9px 12px', borderRadius: '8px', border: '1px solid #d1d5db', fontSize: '.85rem', boxSizing: 'border-box' }} />
-                  </div>
-                  <div>
-                    <label style={{ display: 'block', fontWeight: '700', fontSize: '.82rem', color: '#374151', marginBottom: '6px' }}>Yeni Şifre (Tekrar)</label>
-                    <input type="password" value={sifre.yeni2}
-                      onChange={e => setSifre(s => ({ ...s, yeni2: e.target.value }))}
-                      placeholder="Tekrar girin"
-                      style={{ width: '100%', padding: '9px 12px', borderRadius: '8px', border: `1px solid ${sifre.yeni && sifre.yeni2 && sifre.yeni !== sifre.yeni2 ? '#fca5a5' : '#d1d5db'}`, fontSize: '.85rem', boxSizing: 'border-box' }} />
-                    {sifre.yeni && sifre.yeni2 && sifre.yeni !== sifre.yeni2 && (
-                      <div style={{ color: '#dc2626', fontSize: '.75rem', marginTop: '4px' }}>Şifreler eşleşmiyor</div>
-                    )}
-                  </div>
-                </div>
-              </div>
-            </div>
-
-            <button type="submit" disabled={yukleniyor}
-              style={{ padding: '11px 24px', background: yukleniyor ? '#9ca3af' : '#1a3c5e', color: '#fff', border: 'none', borderRadius: '10px', fontSize: '.9rem', fontWeight: '700', cursor: 'pointer' }}>
-              {yukleniyor ? 'Kaydediliyor...' : '💾 Değişiklikleri Kaydet'}
-            </button>
-          </form>
-        </div>
-      </div>
-    </div>
-  )
-}
-
-// ── Duyurular Component ──
-function Duyurular() {
-  const [duyurular, setDuyurular] = useState<any[]>([])
-  const [yukleniyor, setYukleniyor] = useState(true)
-
-  useEffect(() => {
-    const yukle = async () => {
-      const { data } = await supabase
-        .from('duyurular')
-        .select('*')
-        .order('olusturma', { ascending: false })
-      setDuyurular(data || [])
-      setYukleniyor(false)
-    }
-    yukle()
-  }, [])
-
-  if (yukleniyor) return (
-    <div style={{ padding: '40px', textAlign: 'center', color: '#6b7280' }}>
-      Yükleniyor...
-    </div>
-  )
-
-  return (
-    <div>
-      <h2 style={{ color: '#1a3c5e', marginBottom: '20px' }}>📢 Duyurular</h2>
-      {duyurular.length === 0 ? (
-        <div style={{
-          background: '#f8fafc', borderRadius: '12px', padding: '40px',
-          textAlign: 'center', color: '#6b7280'
-        }}>
-          Henüz duyuru yok.
-        </div>
-      ) : duyurular.map((d, i) => (
-        <div key={d.id} style={{
-          background: '#fff', borderRadius: '12px', padding: '20px',
-          marginBottom: '12px', boxShadow: '0 2px 8px rgba(0,0,0,.06)',
-          border: '1px solid #e5e7eb',
-          borderLeft: '4px solid #1a3c5e'
-        }}>
-          <div style={{ fontWeight: '700', color: '#1a3c5e', fontSize: '1rem', marginBottom: '8px' }}>
-            📢 {d.baslik}
-          </div>
-          {d.icerik && (
-            <div style={{ color: '#374151', fontSize: '.9rem', lineHeight: '1.6' }}>
-              {d.icerik}
-            </div>
-          )}
-          <div style={{ color: '#9ca3af', fontSize: '.75rem', marginTop: '10px' }}>
-            {new Date(d.olusturma).toLocaleDateString('tr-TR', {
-              day: 'numeric', month: 'long', year: 'numeric'
-            })}
-          </div>
-        </div>
-      ))}
-    </div>
-  )
-}
-// ── Arıza Bildir Component ──
 function ArizaBildir({ daireId, kullaniciId }: { daireId: number, kullaniciId: string }) {
-  const [talepler, setTalepler]       = useState<any[]>([])
-  const [yukleniyor, setYukleniyor]   = useState(true)
+  const [talepler, setTalepler] = useState<any[]>([])
+  const [yukleniyor, setYukleniyor] = useState(true)
   const [gonderiliyor, setGonderiliyor] = useState(false)
-  const [mesaj, setMesaj]             = useState<{ tip: 'basari' | 'hata', metin: string } | null>(null)
-  const [form, setForm] = useState({
-    kategori: '', baslik: '', aciklama: '', oncelik: 'normal'
-  })
-
+  const [mesaj, setMesaj] = useState<any>(null)
+  const [form, setForm] = useState({ kategori: '', baslik: '', aciklama: '', oncelik: 'normal' })
   const kategoriler = [
-    { grup: 'Teknik',     items: ['Asansör','Elektrik','Su / Tesisat','Isıtma / Doğalgaz','İnternet / Uydu'] },
+    { grup: 'Teknik', items: ['Asansör','Elektrik','Su / Tesisat','Isıtma / Doğalgaz','İnternet / Uydu'] },
     { grup: 'Ortak Alan', items: ['Temizlik','Bahçe / Peyzaj','Otopark','Güvenlik','Aydınlatma'] },
-    { grup: 'Diğer',      items: ['Gürültü Şikayeti','Öneri','Diğer'] },
+    { grup: 'Diğer', items: ['Gürültü Şikayeti','Öneri','Diğer'] },
   ]
 
   useEffect(() => {
     if (!kullaniciId) return
-    const yukle = async () => {
-      const { data } = await supabase
-        .from('ariza_talepler')
-        .select('*')
-        .eq('kullanici_id', kullaniciId)
-        .order('olusturma', { ascending: false })
-      setTalepler(data || [])
-      setYukleniyor(false)
-    }
-    yukle()
+    supabase.from('ariza_talepler').select('*').eq('kullanici_id', kullaniciId).order('olusturma', { ascending: false })
+      .then(({ data }) => { setTalepler(data || []); setYukleniyor(false) })
   }, [kullaniciId])
 
   const gonder = async (e: React.FormEvent) => {
     e.preventDefault()
     if (!form.kategori) { setMesaj({ tip: 'hata', metin: 'Lütfen kategori seçin.' }); return }
-    setGonderiliyor(true)
-    setMesaj(null)
-
-    const { error } = await supabase.from('ariza_talepler').insert({
-      kullanici_id: kullaniciId,
-      daire_id: daireId,
-      kategori: form.kategori,
-      baslik: form.baslik,
-      aciklama: form.aciklama,
-      oncelik: form.oncelik,
-      durum: 'acik'
-    })
-
-    if (error) {
-      setMesaj({ tip: 'hata', metin: 'Gönderilemedi: ' + error.message })
-    } else {
+    setGonderiliyor(true); setMesaj(null)
+    const { error } = await supabase.from('ariza_talepler').insert({ kullanici_id: kullaniciId, daire_id: daireId, kategori: form.kategori, baslik: form.baslik, aciklama: form.aciklama, oncelik: form.oncelik, durum: 'acik' })
+    if (error) { setMesaj({ tip: 'hata', metin: 'Gönderilemedi: ' + error.message }) }
+    else {
       setMesaj({ tip: 'basari', metin: 'Bildiriminiz yöneticiye iletildi.' })
       setForm({ kategori: '', baslik: '', aciklama: '', oncelik: 'normal' })
-      const { data } = await supabase
-        .from('ariza_talepler').select('*')
-        .eq('kullanici_id', kullaniciId)
-        .order('olusturma', { ascending: false })
+      const { data } = await supabase.from('ariza_talepler').select('*').eq('kullanici_id', kullaniciId).order('olusturma', { ascending: false })
       setTalepler(data || [])
     }
     setGonderiliyor(false)
   }
 
-  const durumRenk: any = {
-    acik:       { bg: '#fef3c7', renk: '#92400e', etiket: '🔓 Açık' },
-    islemde:    { bg: '#dbeafe', renk: '#1e40af', etiket: '⚙️ İşlemde' },
-    tamamlandi: { bg: '#dcfce7', renk: '#166534', etiket: '✅ Tamamlandı' },
-    iptal:      { bg: '#f3f4f6', renk: '#6b7280', etiket: '❌ İptal' },
-  }
+  const durumRenk: any = { acik: { bg: '#fef3c7', renk: '#92400e', etiket: '🔓 Açık' }, islemde: { bg: '#dbeafe', renk: '#1e40af', etiket: '⚙️ İşlemde' }, tamamlandi: { bg: '#dcfce7', renk: '#166534', etiket: '✅ Tamamlandı' }, iptal: { bg: '#f3f4f6', renk: '#6b7280', etiket: '❌ İptal' } }
 
-  if (yukleniyor) return (
-    <div style={{ padding: '40px', textAlign: 'center', color: '#6b7280' }}>Yükleniyor...</div>
-  )
+  if (yukleniyor) return <div style={{ padding: '40px', textAlign: 'center', color: '#6b7280' }}>Yükleniyor...</div>
 
   return (
     <div>
       <h2 style={{ color: '#1a3c5e', marginBottom: '20px' }}>🔧 Arıza / Talep Bildir</h2>
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))', gap: '20px', alignItems: 'flex-start' }}>
-
-        {/* Form */}
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))', gap: '20px' }}>
         <div style={{ background: '#fff', borderRadius: '12px', boxShadow: '0 2px 8px rgba(0,0,0,.06)', border: '1px solid #e5e7eb', overflow: 'hidden' }}>
-          <div style={{ background: '#d97706', color: '#fff', padding: '12px 20px', fontWeight: '700' }}>
-            🔧 Yeni Arıza / Talep Bildir
-          </div>
+          <div style={{ background: '#d97706', color: '#fff', padding: '12px 20px', fontWeight: '700' }}>🔧 Yeni Arıza / Talep</div>
           <div style={{ padding: '20px' }}>
-            {mesaj && (
-              <div style={{
-                background: mesaj.tip === 'basari' ? '#dcfce7' : '#fee2e2',
-                color: mesaj.tip === 'basari' ? '#166534' : '#991b1b',
-                border: `1px solid ${mesaj.tip === 'basari' ? '#86efac' : '#fca5a5'}`,
-                borderRadius: '8px', padding: '12px 16px', marginBottom: '16px', fontSize: '.85rem', fontWeight: '600'
-              }}>{mesaj.metin}</div>
-            )}
+            {mesaj && <div style={{ background: mesaj.tip === 'basari' ? '#dcfce7' : '#fee2e2', color: mesaj.tip === 'basari' ? '#166534' : '#991b1b', borderRadius: '8px', padding: '12px', marginBottom: '16px', fontSize: '.85rem', fontWeight: '600' }}>{mesaj.metin}</div>}
             <form onSubmit={gonder}>
               <div style={{ marginBottom: '14px' }}>
                 <label style={{ display: 'block', fontWeight: '700', fontSize: '.82rem', color: '#374151', marginBottom: '6px' }}>Kategori</label>
-                <select value={form.kategori} onChange={e => setForm(f => ({ ...f, kategori: e.target.value }))} required
-                  style={{ width: '100%', padding: '9px 12px', borderRadius: '8px', border: '1px solid #d1d5db', fontSize: '.85rem' }}>
+                <select value={form.kategori} onChange={e => setForm(f => ({ ...f, kategori: e.target.value }))} required style={{ width: '100%', padding: '9px 12px', borderRadius: '8px', border: '1px solid #d1d5db', fontSize: '.85rem' }}>
                   <option value="">-- Seçin --</option>
-                  {kategoriler.map(g => (
-                    <optgroup key={g.grup} label={g.grup}>
-                      {g.items.map(item => <option key={item} value={item}>{item}</option>)}
-                    </optgroup>
-                  ))}
+                  {kategoriler.map(g => <optgroup key={g.grup} label={g.grup}>{g.items.map(item => <option key={item} value={item}>{item}</option>)}</optgroup>)}
                 </select>
               </div>
               <div style={{ marginBottom: '14px' }}>
                 <label style={{ display: 'block', fontWeight: '700', fontSize: '.82rem', color: '#374151', marginBottom: '6px' }}>Başlık</label>
-                <input type="text" required maxLength={150} value={form.baslik}
-                  onChange={e => setForm(f => ({ ...f, baslik: e.target.value }))}
-                  placeholder="Kısaca özetleyin..."
-                  style={{ width: '100%', padding: '9px 12px', borderRadius: '8px', border: '1px solid #d1d5db', fontSize: '.85rem', boxSizing: 'border-box' }} />
+                <input type="text" required value={form.baslik} onChange={e => setForm(f => ({ ...f, baslik: e.target.value }))} style={{ width: '100%', padding: '9px 12px', borderRadius: '8px', border: '1px solid #d1d5db', fontSize: '.85rem', boxSizing: 'border-box' }} />
               </div>
               <div style={{ marginBottom: '14px' }}>
-                <label style={{ display: 'block', fontWeight: '700', fontSize: '.82rem', color: '#374151', marginBottom: '6px' }}>Detaylı Açıklama</label>
-                <textarea rows={4} required value={form.aciklama}
-                  onChange={e => setForm(f => ({ ...f, aciklama: e.target.value }))}
-                  placeholder="Sorunu detaylıca açıklayın..."
-                  style={{ width: '100%', padding: '9px 12px', borderRadius: '8px', border: '1px solid #d1d5db', fontSize: '.85rem', boxSizing: 'border-box', resize: 'vertical' }} />
+                <label style={{ display: 'block', fontWeight: '700', fontSize: '.82rem', color: '#374151', marginBottom: '6px' }}>Açıklama</label>
+                <textarea rows={3} required value={form.aciklama} onChange={e => setForm(f => ({ ...f, aciklama: e.target.value }))} style={{ width: '100%', padding: '9px 12px', borderRadius: '8px', border: '1px solid #d1d5db', fontSize: '.85rem', boxSizing: 'border-box', resize: 'vertical' }} />
               </div>
               <div style={{ marginBottom: '20px' }}>
                 <label style={{ display: 'block', fontWeight: '700', fontSize: '.82rem', color: '#374151', marginBottom: '6px' }}>Öncelik</label>
                 <div style={{ display: 'flex', gap: '8px' }}>
-                  {[
-                    { value: 'dusuk', label: '🟢 Düşük' },
-                    { value: 'normal', label: '🔵 Normal' },
-                    { value: 'yuksek', label: '🔴 Yüksek' },
-                  ].map(o => (
-                    <button key={o.value} type="button"
-                      onClick={() => setForm(f => ({ ...f, oncelik: o.value }))}
-                      style={{
-                        flex: 1, padding: '8px', borderRadius: '8px', cursor: 'pointer',
-                        fontSize: '.8rem', fontWeight: '700',
-                        border: form.oncelik === o.value ? '2px solid #1a3c5e' : '1px solid #d1d5db',
-                        background: form.oncelik === o.value ? '#eff6ff' : '#fff',
-                        color: form.oncelik === o.value ? '#1a3c5e' : '#6b7280'
-                      }}>{o.label}</button>
+                  {[{ value: 'dusuk', label: '🟢 Düşük' }, { value: 'normal', label: '🔵 Normal' }, { value: 'yuksek', label: '🔴 Yüksek' }].map(o => (
+                    <button key={o.value} type="button" onClick={() => setForm(f => ({ ...f, oncelik: o.value }))} style={{ flex: 1, padding: '8px', borderRadius: '8px', cursor: 'pointer', fontSize: '.8rem', fontWeight: '700', border: form.oncelik === o.value ? '2px solid #1a3c5e' : '1px solid #d1d5db', background: form.oncelik === o.value ? '#eff6ff' : '#fff', color: form.oncelik === o.value ? '#1a3c5e' : '#6b7280' }}>{o.label}</button>
                   ))}
                 </div>
               </div>
-              <button type="submit" disabled={gonderiliyor}
-                style={{ width: '100%', padding: '11px', background: gonderiliyor ? '#9ca3af' : '#d97706', color: '#fff', border: 'none', borderRadius: '10px', fontSize: '.9rem', fontWeight: '700', cursor: 'pointer' }}>
+              <button type="submit" disabled={gonderiliyor} style={{ width: '100%', padding: '11px', background: gonderiliyor ? '#9ca3af' : '#d97706', color: '#fff', border: 'none', borderRadius: '10px', fontSize: '.9rem', fontWeight: '700', cursor: 'pointer' }}>
                 {gonderiliyor ? 'Gönderiliyor...' : '🔧 Bildirimi Gönder'}
               </button>
             </form>
           </div>
         </div>
-
-        {/* Talepler */}
         <div style={{ background: '#fff', borderRadius: '12px', boxShadow: '0 2px 8px rgba(0,0,0,.06)', border: '1px solid #e5e7eb', overflow: 'hidden' }}>
-          <div style={{ background: '#374151', color: '#fff', padding: '12px 20px', fontWeight: '700' }}>
-            📋 Taleplerim
-          </div>
-          {talepler.length === 0 ? (
-            <div style={{ padding: '32px', textAlign: 'center', color: '#9ca3af' }}>
-              Henüz talep gönderilmedi.
-            </div>
-          ) : talepler.map((t, i) => {
-            const d = durumRenk[t.durum] || durumRenk.acik
-            return (
-              <div key={t.id} style={{ padding: '14px 20px', borderBottom: i < talepler.length - 1 ? '1px solid #f3f4f6' : 'none' }}>
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: '8px', marginBottom: '6px' }}>
-                  <span style={{ background: '#f3f4f6', color: '#374151', padding: '1px 8px', borderRadius: '20px', fontSize: '.72rem', fontWeight: '700' }}>
-                    {t.kategori}
-                  </span>
-                  <span style={{ background: d.bg, color: d.renk, padding: '1px 8px', borderRadius: '20px', fontSize: '.72rem', fontWeight: '700', flexShrink: 0 }}>
-                    {d.etiket}
-                  </span>
-                </div>
-                <div style={{ fontWeight: '700', color: '#374151', fontSize: '.85rem' }}>{t.baslik}</div>
-                <div style={{ color: '#6b7280', fontSize: '.78rem', marginTop: '2px' }}>{t.aciklama}</div>
-                {t.yonetici_notu && (
-                  <div style={{ background: '#f0fdf4', border: '1px solid #86efac', borderRadius: '6px', padding: '8px 12px', marginTop: '8px', fontSize: '.78rem', color: '#166534' }}>
-                    <strong>Yönetici Notu:</strong> {t.yonetici_notu}
+          <div style={{ background: '#374151', color: '#fff', padding: '12px 20px', fontWeight: '700' }}>📋 Taleplerim</div>
+          {talepler.length === 0 ? <div style={{ padding: '32px', textAlign: 'center', color: '#9ca3af' }}>Henüz talep yok.</div>
+            : talepler.map((t, i) => {
+              const d = durumRenk[t.durum] || durumRenk.acik
+              return (
+                <div key={t.id} style={{ padding: '14px 20px', borderBottom: i < talepler.length - 1 ? '1px solid #f3f4f6' : 'none' }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', gap: '8px', marginBottom: '4px' }}>
+                    <span style={{ background: '#f3f4f6', color: '#374151', padding: '1px 8px', borderRadius: '20px', fontSize: '.72rem', fontWeight: '700' }}>{t.kategori}</span>
+                    <span style={{ background: d.bg, color: d.renk, padding: '1px 8px', borderRadius: '20px', fontSize: '.72rem', fontWeight: '700' }}>{d.etiket}</span>
                   </div>
-                )}
-                <div style={{ color: '#9ca3af', fontSize: '.72rem', marginTop: '4px' }}>
-                  {new Date(t.olusturma).toLocaleDateString('tr-TR')}
+                  <div style={{ fontWeight: '700', color: '#374151', fontSize: '.85rem' }}>{t.baslik}</div>
+                  <div style={{ color: '#6b7280', fontSize: '.78rem' }}>{t.aciklama}</div>
+                  {t.yonetici_notu && <div style={{ background: '#f0fdf4', borderRadius: '6px', padding: '8px', marginTop: '6px', fontSize: '.78rem', color: '#166534' }}><strong>Yönetici:</strong> {t.yonetici_notu}</div>}
+                  <div style={{ color: '#9ca3af', fontSize: '.72rem', marginTop: '4px' }}>{new Date(t.olusturma).toLocaleDateString('tr-TR')}</div>
                 </div>
-              </div>
-            )
-          })}
+              )
+            })}
         </div>
       </div>
     </div>
   )
 }
 
-// ── Ödeme Bildir Component ──
 function OdemeBildir({ daireId }: { daireId: number }) {
   const [tahakkuklar, setTahakkuklar] = useState<any[]>([])
   const [gecmis, setGecmis] = useState<any[]>([])
   const [yukleniyor, setYukleniyor] = useState(true)
   const [gonderiliyor, setGonderiliyor] = useState(false)
-  const [mesaj, setMesaj] = useState<{ tip: 'basari' | 'hata', metin: string } | null>(null)
-  const [form, setForm] = useState({
-    tahakkuk_id: '',
-    tutar: '',
-    odeme_tarihi: new Date().toISOString().split('T')[0],
-    odeme_yontemi: 'havale',
-    aciklama: ''
-  })
+  const [mesaj, setMesaj] = useState<any>(null)
+  const [form, setForm] = useState({ tahakkuk_id: '', tutar: '', odeme_tarihi: new Date().toISOString().split('T')[0], odeme_yontemi: 'havale', aciklama: '' })
 
   useEffect(() => {
     if (!daireId) return
     const yukle = async () => {
-      const { data: th } = await supabase
-        .from('tahakkuklar')
-        .select('*, aidat_turleri(tur_adi)')
-        .eq('daire_id', daireId)
-        .neq('durum', 'odendi')
-        .order('donem_yil').order('donem_ay')
+      const { data: th } = await supabase.from('tahakkuklar').select('*, aidat_turleri(tur_adi)').eq('daire_id', daireId).neq('durum', 'odendi').order('donem_yil').order('donem_ay')
       setTahakkuklar(th || [])
-
-      const { data: gb } = await supabase
-        .from('odeme_bildirimleri')
-        .select('*, tahakkuklar(donem_yil, donem_ay, aidat_turleri(tur_adi))')
-        .eq('daire_id', daireId)
-        .order('olusturma', { ascending: false })
-        .limit(10)
+      const { data: gb } = await supabase.from('odeme_bildirimleri').select('*, tahakkuklar(donem_yil, donem_ay, aidat_turleri(tur_adi))').eq('daire_id', daireId).order('olusturma', { ascending: false }).limit(10)
       setGecmis(gb || [])
       setYukleniyor(false)
     }
@@ -958,346 +212,335 @@ function OdemeBildir({ daireId }: { daireId: number }) {
 
   const gonder = async (e: React.FormEvent) => {
     e.preventDefault()
-    if (!form.tahakkuk_id) {
-      setMesaj({ tip: 'hata', metin: 'Lütfen borç seçin.' })
-      return
-    }
-    setGonderiliyor(true)
-    setMesaj(null)
-
+    if (!form.tahakkuk_id) { setMesaj({ tip: 'hata', metin: 'Lütfen borç seçin.' }); return }
+    setGonderiliyor(true); setMesaj(null)
     const { data: { session } } = await supabase.auth.getSession()
-
-    const { error } = await supabase
-      .from('odeme_bildirimleri')
-      .insert({
-        kullanici_id: session?.user.id,
-        daire_id: daireId,
-        tahakkuk_id: parseInt(form.tahakkuk_id),
-        tutar: parseFloat(form.tutar),
-        odeme_tarihi: form.odeme_tarihi,
-        odeme_yontemi: form.odeme_yontemi,
-        aciklama: form.aciklama,
-        durum: 'bekliyor'
-      })
-
-    if (error) {
-      setMesaj({ tip: 'hata', metin: 'Gönderilemedi: ' + error.message })
-    } else {
-      setMesaj({
-        tip: 'basari',
-        metin: 'Bildiriminiz yöneticiye iletildi. Onaylandıktan sonra borcunuz kapanacak.'
-      })
+    const { error } = await supabase.from('odeme_bildirimleri').insert({ kullanici_id: session?.user.id, daire_id: daireId, tahakkuk_id: parseInt(form.tahakkuk_id), tutar: parseFloat(form.tutar), odeme_tarihi: form.odeme_tarihi, odeme_yontemi: form.odeme_yontemi, aciklama: form.aciklama, durum: 'bekliyor' })
+    if (error) { setMesaj({ tip: 'hata', metin: 'Gönderilemedi: ' + error.message }) }
+    else {
+      setMesaj({ tip: 'basari', metin: 'Bildiriminiz yöneticiye iletildi.' })
       setForm(f => ({ ...f, tahakkuk_id: '', tutar: '', aciklama: '' }))
-      const { data: gb } = await supabase
-        .from('odeme_bildirimleri')
-        .select('*, tahakkuklar(donem_yil, donem_ay, aidat_turleri(tur_adi))')
-        .eq('daire_id', daireId)
-        .order('olusturma', { ascending: false })
-        .limit(10)
+      const { data: gb } = await supabase.from('odeme_bildirimleri').select('*, tahakkuklar(donem_yil, donem_ay, aidat_turleri(tur_adi))').eq('daire_id', daireId).order('olusturma', { ascending: false }).limit(10)
       setGecmis(gb || [])
     }
     setGonderiliyor(false)
   }
 
-  const durumRenk: any = {
-    bekliyor: { bg: '#fef3c7', renk: '#92400e', etiket: '⏳ Bekliyor' },
-    onaylandi: { bg: '#dcfce7', renk: '#166534', etiket: '✅ Onaylandı' },
-    reddedildi: { bg: '#fee2e2', renk: '#991b1b', etiket: '❌ Reddedildi' },
-  }
+  const durumRenk: any = { bekliyor: { bg: '#fef3c7', renk: '#92400e', etiket: '⏳ Bekliyor' }, onaylandi: { bg: '#dcfce7', renk: '#166534', etiket: '✅ Onaylandı' }, reddedildi: { bg: '#fee2e2', renk: '#991b1b', etiket: '❌ Reddedildi' } }
 
-  if (yukleniyor) return (
-    <div style={{ padding: '40px', textAlign: 'center', color: '#6b7280' }}>
-      Yükleniyor...
-    </div>
-  )
+  if (yukleniyor) return <div style={{ padding: '40px', textAlign: 'center', color: '#6b7280' }}>Yükleniyor...</div>
 
   return (
     <div>
       <h2 style={{ color: '#1a3c5e', marginBottom: '20px' }}>✉️ Ödeme Bildir</h2>
-
-      <div style={{
-        display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))',
-        gap: '20px', alignItems: 'flex-start'
-      }}>
-        {/* Form */}
-        <div style={{
-          background: '#fff', borderRadius: '12px',
-          boxShadow: '0 2px 8px rgba(0,0,0,.06)',
-          border: '1px solid #e5e7eb', overflow: 'hidden'
-        }}>
-          <div style={{
-            background: '#1a3c5e', color: '#fff',
-            padding: '12px 20px', fontWeight: '700'
-          }}>
-            ✉️ Ödeme Yaptım, Bildir
-          </div>
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))', gap: '20px' }}>
+        <div style={{ background: '#fff', borderRadius: '12px', boxShadow: '0 2px 8px rgba(0,0,0,.06)', border: '1px solid #e5e7eb', overflow: 'hidden' }}>
+          <div style={{ background: '#1a3c5e', color: '#fff', padding: '12px 20px', fontWeight: '700' }}>✉️ Ödeme Yaptım</div>
           <div style={{ padding: '20px' }}>
-            {mesaj && (
-              <div style={{
-                background: mesaj.tip === 'basari' ? '#dcfce7' : '#fee2e2',
-                color: mesaj.tip === 'basari' ? '#166534' : '#991b1b',
-                border: `1px solid ${mesaj.tip === 'basari' ? '#86efac' : '#fca5a5'}`,
-                borderRadius: '8px', padding: '12px 16px',
-                marginBottom: '16px', fontSize: '.85rem', fontWeight: '600'
-              }}>
-                {mesaj.metin}
-              </div>
-            )}
-
-            {tahakkuklar.length === 0 ? (
-              <div style={{
-                textAlign: 'center', color: '#16a34a',
-                padding: '24px', fontWeight: '700'
-              }}>
-                ✅ Açık borç bulunmuyor!
-              </div>
-            ) : (
+            {mesaj && <div style={{ background: mesaj.tip === 'basari' ? '#dcfce7' : '#fee2e2', color: mesaj.tip === 'basari' ? '#166534' : '#991b1b', borderRadius: '8px', padding: '12px', marginBottom: '16px', fontSize: '.85rem', fontWeight: '600' }}>{mesaj.metin}</div>}
+            {tahakkuklar.length === 0 ? <div style={{ textAlign: 'center', color: '#16a34a', padding: '24px', fontWeight: '700' }}>✅ Açık borç yok!</div> : (
               <form onSubmit={gonder}>
-                {[
-                  {
-                    label: 'Hangi Borç İçin?', type: 'select',
-                    value: form.tahakkuk_id,
-                    onChange: (v: string) => turSec(v),
-                    options: tahakkuklar.map(t => ({
-                      value: String(t.id),
-                      label: `${t.aidat_turleri?.tur_adi} — ${ayAdi(t.donem_ay)} ${t.donem_yil} — ${paraFormat(Number(t.tutar))}`
-                    }))
-                  },
-                ].map(f => (
-                  <div key={f.label} style={{ marginBottom: '14px' }}>
-                    <label style={{
-                      display: 'block', fontWeight: '700',
-                      fontSize: '.82rem', color: '#374151', marginBottom: '6px'
-                    }}>{f.label}</label>
-                    <select value={f.value} onChange={e => f.onChange(e.target.value)}
-                      required
-                      style={{
-                        width: '100%', padding: '9px 12px', borderRadius: '8px',
-                        border: '1px solid #d1d5db', fontSize: '.85rem'
-                      }}>
-                      <option value="">-- Seçin --</option>
-                      {f.options?.map(o => (
-                        <option key={o.value} value={o.value}>{o.label}</option>
-                      ))}
-                    </select>
-                  </div>
-                ))}
-
                 <div style={{ marginBottom: '14px' }}>
-                  <label style={{
-                    display: 'block', fontWeight: '700',
-                    fontSize: '.82rem', color: '#374151', marginBottom: '6px'
-                  }}>Ödediğim Tutar (₺)</label>
-                  <input type="number" step="0.01" required
-                    value={form.tutar}
-                    onChange={e => setForm(f => ({ ...f, tutar: e.target.value }))}
-                    style={{
-                      width: '100%', padding: '9px 12px', borderRadius: '8px',
-                      border: '1px solid #d1d5db', fontSize: '.85rem',
-                      boxSizing: 'border-box'
-                    }} />
-                </div>
-
-                <div style={{ marginBottom: '14px' }}>
-                  <label style={{
-                    display: 'block', fontWeight: '700',
-                    fontSize: '.82rem', color: '#374151', marginBottom: '6px'
-                  }}>Ödeme Tarihi</label>
-                  <input type="date" required value={form.odeme_tarihi}
-                    onChange={e => setForm(f => ({ ...f, odeme_tarihi: e.target.value }))}
-                    style={{
-                      width: '100%', padding: '9px 12px', borderRadius: '8px',
-                      border: '1px solid #d1d5db', fontSize: '.85rem',
-                      boxSizing: 'border-box'
-                    }} />
-                </div>
-
-                <div style={{ marginBottom: '14px' }}>
-                  <label style={{
-                    display: 'block', fontWeight: '700',
-                    fontSize: '.82rem', color: '#374151', marginBottom: '6px'
-                  }}>Ödeme Yöntemi</label>
-                  <select value={form.odeme_yontemi}
-                    onChange={e => setForm(f => ({ ...f, odeme_yontemi: e.target.value }))}
-                    style={{
-                      width: '100%', padding: '9px 12px', borderRadius: '8px',
-                      border: '1px solid #d1d5db', fontSize: '.85rem'
-                    }}>
-                    <option value="havale">Havale</option>
-                    <option value="eft">EFT</option>
-                    <option value="nakit">Nakit</option>
-                    <option value="kredi_karti">Kredi Kartı</option>
-                    <option value="diger">Diğer</option>
+                  <label style={{ display: 'block', fontWeight: '700', fontSize: '.82rem', color: '#374151', marginBottom: '6px' }}>Hangi Borç?</label>
+                  <select value={form.tahakkuk_id} onChange={e => turSec(e.target.value)} required style={{ width: '100%', padding: '9px 12px', borderRadius: '8px', border: '1px solid #d1d5db', fontSize: '.85rem' }}>
+                    <option value="">-- Seçin --</option>
+                    {tahakkuklar.map(t => <option key={t.id} value={t.id}>{t.aidat_turleri?.tur_adi} — {ayAdi(t.donem_ay)} {t.donem_yil} — {paraFormat(Number(t.tutar))}</option>)}
                   </select>
                 </div>
-
-                <div style={{ marginBottom: '20px' }}>
-                  <label style={{
-                    display: 'block', fontWeight: '700',
-                    fontSize: '.82rem', color: '#374151', marginBottom: '6px'
-                  }}>
-                    Açıklama{' '}
-                    <span style={{ color: '#9ca3af', fontWeight: '400' }}>(opsiyonel)</span>
-                  </label>
-                  <textarea rows={3} value={form.aciklama}
-                    onChange={e => setForm(f => ({ ...f, aciklama: e.target.value }))}
-                    placeholder="Banka ref no, açıklama vb..."
-                    style={{
-                      width: '100%', padding: '9px 12px', borderRadius: '8px',
-                      border: '1px solid #d1d5db', fontSize: '.85rem',
-                      boxSizing: 'border-box', resize: 'vertical'
-                    }} />
+                <div style={{ marginBottom: '14px' }}>
+                  <label style={{ display: 'block', fontWeight: '700', fontSize: '.82rem', color: '#374151', marginBottom: '6px' }}>Tutar (₺)</label>
+                  <input type="number" step="0.01" required value={form.tutar} onChange={e => setForm(f => ({ ...f, tutar: e.target.value }))} style={{ width: '100%', padding: '9px 12px', borderRadius: '8px', border: '1px solid #d1d5db', fontSize: '.85rem', boxSizing: 'border-box' }} />
                 </div>
-
-                <button type="submit" disabled={gonderiliyor}
-                  style={{
-                    width: '100%', padding: '11px',
-                    background: gonderiliyor ? '#9ca3af' : '#1a3c5e',
-                    color: '#fff', border: 'none', borderRadius: '10px',
-                    fontSize: '.9rem', fontWeight: '700', cursor: 'pointer'
-                  }}>
-                  {gonderiliyor ? 'Gönderiliyor...' : '✉️ Bildirimi Gönder'}
+                <div style={{ marginBottom: '14px' }}>
+                  <label style={{ display: 'block', fontWeight: '700', fontSize: '.82rem', color: '#374151', marginBottom: '6px' }}>Tarih</label>
+                  <input type="date" required value={form.odeme_tarihi} onChange={e => setForm(f => ({ ...f, odeme_tarihi: e.target.value }))} style={{ width: '100%', padding: '9px 12px', borderRadius: '8px', border: '1px solid #d1d5db', fontSize: '.85rem', boxSizing: 'border-box' }} />
+                </div>
+                <div style={{ marginBottom: '14px' }}>
+                  <label style={{ display: 'block', fontWeight: '700', fontSize: '.82rem', color: '#374151', marginBottom: '6px' }}>Yöntem</label>
+                  <select value={form.odeme_yontemi} onChange={e => setForm(f => ({ ...f, odeme_yontemi: e.target.value }))} style={{ width: '100%', padding: '9px 12px', borderRadius: '8px', border: '1px solid #d1d5db', fontSize: '.85rem' }}>
+                    <option value="havale">Havale</option><option value="eft">EFT</option><option value="nakit">Nakit</option><option value="kredi_karti">Kredi Kartı</option><option value="diger">Diğer</option>
+                  </select>
+                </div>
+                <div style={{ marginBottom: '20px' }}>
+                  <label style={{ display: 'block', fontWeight: '700', fontSize: '.82rem', color: '#374151', marginBottom: '6px' }}>Açıklama <span style={{ color: '#9ca3af', fontWeight: '400' }}>(opsiyonel)</span></label>
+                  <textarea rows={2} value={form.aciklama} onChange={e => setForm(f => ({ ...f, aciklama: e.target.value }))} style={{ width: '100%', padding: '9px 12px', borderRadius: '8px', border: '1px solid #d1d5db', fontSize: '.85rem', boxSizing: 'border-box', resize: 'vertical' }} />
+                </div>
+                <button type="submit" disabled={gonderiliyor} style={{ width: '100%', padding: '11px', background: gonderiliyor ? '#9ca3af' : '#1a3c5e', color: '#fff', border: 'none', borderRadius: '10px', fontSize: '.9rem', fontWeight: '700', cursor: 'pointer' }}>
+                  {gonderiliyor ? 'Gönderiliyor...' : '✉️ Gönder'}
                 </button>
               </form>
             )}
           </div>
         </div>
-
-        {/* Geçmiş */}
-        <div style={{
-          background: '#fff', borderRadius: '12px',
-          boxShadow: '0 2px 8px rgba(0,0,0,.06)',
-          border: '1px solid #e5e7eb', overflow: 'hidden'
-        }}>
-          <div style={{
-            background: '#374151', color: '#fff',
-            padding: '12px 20px', fontWeight: '700'
-          }}>
-            📋 Bildirim Geçmişim
-          </div>
-          {gecmis.length === 0 ? (
-            <div style={{ padding: '32px', textAlign: 'center', color: '#9ca3af' }}>
-              Henüz bildirim gönderilmedi.
-            </div>
-          ) : gecmis.map((b, i) => {
-            const d = durumRenk[b.durum] || durumRenk.bekliyor
-            return (
-              <div key={b.id} style={{
-                padding: '14px 20px',
-                borderBottom: i < gecmis.length - 1 ? '1px solid #f3f4f6' : 'none'
-              }}>
-                <div style={{
-                  display: 'flex', justifyContent: 'space-between',
-                  alignItems: 'flex-start', gap: '8px'
-                }}>
+        <div style={{ background: '#fff', borderRadius: '12px', boxShadow: '0 2px 8px rgba(0,0,0,.06)', border: '1px solid #e5e7eb', overflow: 'hidden' }}>
+          <div style={{ background: '#374151', color: '#fff', padding: '12px 20px', fontWeight: '700' }}>📋 Bildirim Geçmişim</div>
+          {gecmis.length === 0 ? <div style={{ padding: '32px', textAlign: 'center', color: '#9ca3af' }}>Henüz bildirim yok.</div>
+            : gecmis.map((b, i) => {
+              const d = durumRenk[b.durum] || durumRenk.bekliyor
+              return (
+                <div key={b.id} style={{ padding: '14px 20px', borderBottom: i < gecmis.length - 1 ? '1px solid #f3f4f6' : 'none', display: 'flex', justifyContent: 'space-between', gap: '8px' }}>
                   <div>
-                    <div style={{ fontWeight: '700', color: '#374151', fontSize: '.85rem' }}>
-                      {b.tahakkuklar?.aidat_turleri?.tur_adi}
-                    </div>
-                    <div style={{ color: '#6b7280', fontSize: '.75rem' }}>
-                      {ayAdi(b.tahakkuklar?.donem_ay)} {b.tahakkuklar?.donem_yil}
-                    </div>
-                    <div style={{ color: '#9ca3af', fontSize: '.72rem' }}>
-                      {new Date(b.olusturma).toLocaleDateString('tr-TR')}
-                    </div>
-                    {b.red_neden && (
-                      <div style={{
-                        color: '#dc2626', fontSize: '.75rem',
-                        marginTop: '4px', fontStyle: 'italic'
-                      }}>
-                        Red: {b.red_neden}
-                      </div>
-                    )}
+                    <div style={{ fontWeight: '700', color: '#374151', fontSize: '.85rem' }}>{b.tahakkuklar?.aidat_turleri?.tur_adi}</div>
+                    <div style={{ color: '#6b7280', fontSize: '.75rem' }}>{ayAdi(b.tahakkuklar?.donem_ay)} {b.tahakkuklar?.donem_yil}</div>
+                    <div style={{ color: '#9ca3af', fontSize: '.72rem' }}>{new Date(b.olusturma).toLocaleDateString('tr-TR')}</div>
                   </div>
-                  <div style={{ textAlign: 'right', flexShrink: 0 }}>
-                    <div style={{ fontWeight: '700', color: '#374151', fontSize: '.9rem' }}>
-                      {paraFormat(Number(b.tutar))}
-                    </div>
-                    <span style={{
-                      background: d.bg, color: d.renk,
-                      padding: '2px 8px', borderRadius: '20px',
-                      fontSize: '.7rem', fontWeight: '700',
-                      display: 'inline-block', marginTop: '4px'
-                    }}>
-                      {d.etiket}
-                    </span>
+                  <div style={{ textAlign: 'right' }}>
+                    <div style={{ fontWeight: '700', color: '#374151' }}>{paraFormat(Number(b.tutar))}</div>
+                    <span style={{ background: d.bg, color: d.renk, padding: '2px 8px', borderRadius: '20px', fontSize: '.7rem', fontWeight: '700' }}>{d.etiket}</span>
                   </div>
                 </div>
-              </div>
-            )
-          })}
+              )
+            })}
         </div>
-      </div>
-
-      <div style={{
-        background: '#eff6ff', border: '1px solid #bfdbfe',
-        borderRadius: '12px', padding: '16px 20px', marginTop: '20px'
-      }}>
-        <div style={{ fontWeight: '700', color: '#1e40af', marginBottom: '8px' }}>
-          ℹ️ Nasıl Çalışır?
-        </div>
-        <ol style={{
-          color: '#3730a3', margin: 0, paddingLeft: '20px',
-          fontSize: '.85rem', lineHeight: '2'
-        }}>
-          <li>Havale/EFT yaptıktan sonra bu formu doldurun</li>
-          <li>Yönetici bildiriminizi inceleyip onaylar</li>
-          <li>Onaylandıktan sonra borcunuz kapanır</li>
-        </ol>
       </div>
     </div>
   )
 }
 
-// ── Ana Sayfa ──
-export default function SakinPanel() {
-  const [kullanici, setKullanici] = useState<any>(null)
-  const [daire, setDaire] = useState<any>(null)
-  const [tahakkuklar, setTahakkuklar] = useState<any[]>([])
-  const [odemeler, setOdemeler] = useState<any>({})
+function Duyurular() {
+  const [duyurular, setDuyurular] = useState<any[]>([])
   const [yukleniyor, setYukleniyor] = useState(true)
-  const [aktifSayfa, setAktifSayfa] = useState('borclarim')
+  useEffect(() => {
+    supabase.from('duyurular').select('*').order('olusturma', { ascending: false }).then(({ data }) => { setDuyurular(data || []); setYukleniyor(false) })
+  }, [])
+  if (yukleniyor) return <div style={{ padding: '40px', textAlign: 'center', color: '#6b7280' }}>Yükleniyor...</div>
+  return (
+    <div>
+      <h2 style={{ color: '#1a3c5e', marginBottom: '20px' }}>📢 Duyurular</h2>
+      {duyurular.length === 0 ? <div style={{ background: '#f8fafc', borderRadius: '12px', padding: '40px', textAlign: 'center', color: '#6b7280' }}>Henüz duyuru yok.</div>
+        : duyurular.map(d => (
+          <div key={d.id} style={{ background: '#fff', borderRadius: '12px', padding: '20px', marginBottom: '12px', boxShadow: '0 2px 8px rgba(0,0,0,.06)', border: '1px solid #e5e7eb', borderLeft: '4px solid #1a3c5e' }}>
+            <div style={{ fontWeight: '700', color: '#1a3c5e', marginBottom: '8px' }}>📢 {d.baslik}</div>
+            {d.icerik && <div style={{ color: '#374151', fontSize: '.9rem', lineHeight: '1.6' }}>{d.icerik}</div>}
+            <div style={{ color: '#9ca3af', fontSize: '.75rem', marginTop: '10px' }}>{new Date(d.olusturma).toLocaleDateString('tr-TR', { day: 'numeric', month: 'long', year: 'numeric' })}</div>
+          </div>
+        ))}
+    </div>
+  )
+}
+
+function Profil({ kullanici, setKullanici }: { kullanici: any, setKullanici: any }) {
+  const [form, setForm] = useState({ ad_soyad: kullanici?.ad_soyad || '', telefon: kullanici?.telefon || '' })
+  const [sifre, setSifre] = useState({ yeni: '', yeni2: '' })
+  const [mesaj, setMesaj] = useState<any>(null)
+  const [yukleniyor, setYukleniyor] = useState(false)
+  const [istatistik, setIstatistik] = useState<any>(null)
+
+  useEffect(() => {
+    const yukle = async () => {
+      const { data: { session } } = await supabase.auth.getSession()
+      if (!session) return
+      const { data: daireData } = await supabase.from('daireler').select('id').eq('kullanici_id', session.user.id).single()
+      if (daireData) {
+        const { data: th } = await supabase.from('tahakkuklar').select('id, tutar, durum').eq('daire_id', daireData.id)
+        const ids = th?.map((t: any) => t.id) || []
+        let toplamOdenen = 0, odemeSayisi = 0
+        if (ids.length > 0) {
+          const { data: od } = await supabase.from('odemeler').select('tutar').in('tahakkuk_id', ids)
+          toplamOdenen = od?.reduce((acc, o) => acc + Number(o.tutar), 0) || 0
+          odemeSayisi = od?.length || 0
+        }
+        const toplamBorc = th?.filter((t: any) => t.durum !== 'odendi').reduce((acc: number, t: any) => acc + Number(t.tutar), 0) || 0
+        setIstatistik({ odemeSayisi, toplamBorc })
+      }
+    }
+    yukle()
+  }, [])
+
+  const kaydet = async (e: React.FormEvent) => {
+    e.preventDefault()
+    setYukleniyor(true); setMesaj(null)
+    if (sifre.yeni && sifre.yeni !== sifre.yeni2) { setMesaj({ tip: 'hata', metin: 'Şifreler eşleşmiyor.' }); setYukleniyor(false); return }
+    const { error } = await supabase.from('profiller').update({ ad_soyad: form.ad_soyad, telefon: form.telefon }).eq('id', kullanici.id)
+    if (error) { setMesaj({ tip: 'hata', metin: error.message }); setYukleniyor(false); return }
+    if (sifre.yeni) await supabase.auth.updateUser({ password: sifre.yeni })
+    setKullanici((k: any) => ({ ...k, ad_soyad: form.ad_soyad, telefon: form.telefon }))
+    setSifre({ yeni: '', yeni2: '' })
+    setMesaj({ tip: 'basari', metin: 'Profil güncellendi.' })
+    setYukleniyor(false)
+  }
+
+  return (
+    <div>
+      <h2 style={{ color: '#1a3c5e', marginBottom: '20px' }}>👤 Profilim</h2>
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: '20px' }}>
+        <div style={{ background: '#fff', borderRadius: '12px', padding: '24px', boxShadow: '0 2px 8px rgba(0,0,0,.06)', border: '1px solid #e5e7eb', textAlign: 'center' }}>
+          <div style={{ width: '80px', height: '80px', borderRadius: '50%', background: '#1a3c5e', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 12px', fontSize: '2rem', color: '#fff', fontWeight: '800' }}>
+            {kullanici?.ad_soyad?.charAt(0)?.toUpperCase()}
+          </div>
+          <div style={{ fontWeight: '800', fontSize: '1.1rem', color: '#1a3c5e' }}>{kullanici?.ad_soyad}</div>
+          <div style={{ color: '#6b7280', fontSize: '.82rem', marginBottom: '16px' }}>{kullanici?.telefon || 'Telefon yok'}</div>
+          {istatistik && (
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px', borderTop: '1px solid #e5e7eb', paddingTop: '12px' }}>
+              <div><div style={{ fontWeight: '800', fontSize: '1.2rem', color: '#16a34a' }}>{istatistik.odemeSayisi}</div><div style={{ color: '#6b7280', fontSize: '.75rem' }}>Ödeme</div></div>
+              <div><div style={{ fontWeight: '800', fontSize: '1rem', color: istatistik.toplamBorc > 0 ? '#dc2626' : '#16a34a' }}>{Number(istatistik.toplamBorc).toLocaleString('tr-TR')} ₺</div><div style={{ color: '#6b7280', fontSize: '.75rem' }}>Borç</div></div>
+            </div>
+          )}
+        </div>
+        <div>
+          {mesaj && <div style={{ background: mesaj.tip === 'basari' ? '#dcfce7' : '#fee2e2', color: mesaj.tip === 'basari' ? '#166534' : '#991b1b', borderRadius: '8px', padding: '12px', marginBottom: '16px', fontSize: '.85rem', fontWeight: '600' }}>{mesaj.metin}</div>}
+          <form onSubmit={kaydet}>
+            <div style={{ background: '#fff', borderRadius: '12px', padding: '20px', boxShadow: '0 2px 8px rgba(0,0,0,.06)', border: '1px solid #e5e7eb', marginBottom: '16px' }}>
+              <div style={{ fontWeight: '700', marginBottom: '14px' }}>👤 Kişisel Bilgiler</div>
+              <div style={{ marginBottom: '14px' }}>
+                <label style={{ display: 'block', fontWeight: '700', fontSize: '.82rem', color: '#374151', marginBottom: '6px' }}>Ad Soyad</label>
+                <input type="text" required value={form.ad_soyad} onChange={e => setForm(f => ({ ...f, ad_soyad: e.target.value }))} style={{ width: '100%', padding: '9px 12px', borderRadius: '8px', border: '1px solid #d1d5db', fontSize: '.85rem', boxSizing: 'border-box' }} />
+              </div>
+              <div>
+                <label style={{ display: 'block', fontWeight: '700', fontSize: '.82rem', color: '#374151', marginBottom: '6px' }}>Telefon</label>
+                <input type="text" value={form.telefon} onChange={e => setForm(f => ({ ...f, telefon: e.target.value }))} style={{ width: '100%', padding: '9px 12px', borderRadius: '8px', border: '1px solid #d1d5db', fontSize: '.85rem', boxSizing: 'border-box' }} />
+              </div>
+            </div>
+            <div style={{ background: '#fff', borderRadius: '12px', padding: '20px', boxShadow: '0 2px 8px rgba(0,0,0,.06)', border: '1px solid #e5e7eb', marginBottom: '16px' }}>
+              <div style={{ fontWeight: '700', marginBottom: '14px' }}>🔒 Şifre Değiştir <span style={{ color: '#9ca3af', fontWeight: '400', fontSize: '.8rem' }}>(boş = değişmez)</span></div>
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: '12px' }}>
+                <div>
+                  <label style={{ display: 'block', fontWeight: '700', fontSize: '.82rem', color: '#374151', marginBottom: '6px' }}>Yeni Şifre</label>
+                  <input type="password" value={sifre.yeni} onChange={e => setSifre(s => ({ ...s, yeni: e.target.value }))} style={{ width: '100%', padding: '9px 12px', borderRadius: '8px', border: '1px solid #d1d5db', fontSize: '.85rem', boxSizing: 'border-box' }} />
+                </div>
+                <div>
+                  <label style={{ display: 'block', fontWeight: '700', fontSize: '.82rem', color: '#374151', marginBottom: '6px' }}>Tekrar</label>
+                  <input type="password" value={sifre.yeni2} onChange={e => setSifre(s => ({ ...s, yeni2: e.target.value }))} style={{ width: '100%', padding: '9px 12px', borderRadius: '8px', border: '1px solid #d1d5db', fontSize: '.85rem', boxSizing: 'border-box' }} />
+                </div>
+              </div>
+            </div>
+            <button type="submit" disabled={yukleniyor} style={{ padding: '11px 24px', background: yukleniyor ? '#9ca3af' : '#1a3c5e', color: '#fff', border: 'none', borderRadius: '10px', fontSize: '.9rem', fontWeight: '700', cursor: 'pointer' }}>
+              {yukleniyor ? 'Kaydediliyor...' : '💾 Kaydet'}
+            </button>
+          </form>
+        </div>
+      </div>
+    </div>
+  )
+}
+
+function Ekstre({ daireId, kullanici }: { daireId: number, kullanici: any }) {
+  const [hareketler, setHareketler] = useState<any[]>([])
+  const [yukleniyor, setYukleniyor] = useState(true)
+  const [filtre, setFiltre] = useState({ yil_bas: new Date().getFullYear(), ay_bas: 1, yil_bitis: new Date().getFullYear(), ay_bitis: new Date().getMonth() + 1 })
+
+  const yukle = async () => {
+    if (!daireId) return
+    setYukleniyor(true)
+    const { data: thData } = await supabase.from('tahakkuklar').select('*, aidat_turleri(tur_adi)').eq('daire_id', daireId).gte('donem_yil', filtre.yil_bas).lte('donem_yil', filtre.yil_bitis).order('donem_yil').order('donem_ay')
+    if (!thData || thData.length === 0) { setHareketler([]); setYukleniyor(false); return }
+    const filtreli = thData.filter((t: any) => { const d = t.donem_yil * 100 + t.donem_ay; return d >= filtre.yil_bas * 100 + filtre.ay_bas && d <= filtre.yil_bitis * 100 + filtre.ay_bitis })
+    const ids = filtreli.map((t: any) => t.id)
+    const { data: odemeData } = await supabase.from('odemeler').select('tahakkuk_id, tutar').in('tahakkuk_id', ids)
+    const odemeMap: any = {}
+    odemeData?.forEach((o: any) => { if (!odemeMap[o.tahakkuk_id]) odemeMap[o.tahakkuk_id] = 0; odemeMap[o.tahakkuk_id] += Number(o.tutar) })
+    setHareketler(filtreli.map((t: any) => ({ ...t, odenen: odemeMap[t.id] || 0, kalan: Math.max(0, Number(t.tutar) - (odemeMap[t.id] || 0)) })))
+    setYukleniyor(false)
+  }
+
+  useEffect(() => { yukle() }, [daireId])
+
+  const toplamTahakkuk = hareketler.reduce((acc, h) => acc + Number(h.tutar), 0)
+  const toplamOdenen   = hareketler.reduce((acc, h) => acc + h.odenen, 0)
+  const toplamKalan    = hareketler.reduce((acc, h) => acc + h.kalan, 0)
+  const tahsilatOrani  = toplamTahakkuk > 0 ? Math.round(toplamOdenen / toplamTahakkuk * 100) : 100
+
+  if (yukleniyor) return <div style={{ padding: '40px', textAlign: 'center', color: '#6b7280' }}>Yükleniyor...</div>
+
+  return (
+    <div>
+      <h2 style={{ color: '#1a3c5e', marginBottom: '20px' }}>📄 Aidat Ekstresi</h2>
+      <div style={{ background: '#fff', borderRadius: '12px', padding: '16px 20px', marginBottom: '20px', boxShadow: '0 2px 8px rgba(0,0,0,.06)', border: '1px solid #e5e7eb' }}>
+        <div style={{ fontWeight: '700', fontSize: '.85rem', color: '#374151', marginBottom: '12px' }}>📅 Dönem Seçin</div>
+        <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap', alignItems: 'flex-end' }}>
+          {[{ label: 'Başlangıç Yılı', key: 'yil_bas', type: 'yil' }, { label: 'Başlangıç Ayı', key: 'ay_bas', type: 'ay' }, { label: 'Bitiş Yılı', key: 'yil_bitis', type: 'yil' }, { label: 'Bitiş Ayı', key: 'ay_bitis', type: 'ay' }].map(f => (
+            <div key={f.key} style={{ flex: 1, minWidth: '110px' }}>
+              <label style={{ display: 'block', fontWeight: '600', fontSize: '.78rem', color: '#6b7280', marginBottom: '4px' }}>{f.label}</label>
+              {f.type === 'yil' ? (
+                <select value={(filtre as any)[f.key]} onChange={e => setFiltre(prev => ({ ...prev, [f.key]: parseInt(e.target.value) }))} style={{ width: '100%', padding: '7px', borderRadius: '8px', border: '1px solid #d1d5db', fontSize: '.85rem' }}>
+                  {[2024,2025,2026,2027].map(y => <option key={y} value={y}>{y}</option>)}
+                </select>
+              ) : (
+                <select value={(filtre as any)[f.key]} onChange={e => setFiltre(prev => ({ ...prev, [f.key]: parseInt(e.target.value) }))} style={{ width: '100%', padding: '7px', borderRadius: '8px', border: '1px solid #d1d5db', fontSize: '.85rem' }}>
+                  {Array.from({length:12},(_,i) => i+1).map(m => <option key={m} value={m}>{ayAdi(m)}</option>)}
+                </select>
+              )}
+            </div>
+          ))}
+          <button onClick={yukle} style={{ padding: '9px 16px', background: '#1a3c5e', color: '#fff', border: 'none', borderRadius: '8px', cursor: 'pointer', fontWeight: '700', fontSize: '.85rem' }}>🔍 Görüntüle</button>
+        </div>
+      </div>
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(130px, 1fr))', gap: '12px', marginBottom: '20px' }}>
+        {[{ label: 'Tahakkuk', deger: toplamTahakkuk, renk: '#1a3c5e' }, { label: 'Ödenen', deger: toplamOdenen, renk: '#16a34a' }, { label: 'Kalan', deger: toplamKalan, renk: toplamKalan > 0 ? '#dc2626' : '#16a34a' }, { label: 'Oran', deger: null, renk: '#d97706' }].map(k => (
+          <div key={k.label} style={{ background: '#fff', borderRadius: '12px', padding: '14px', boxShadow: '0 2px 8px rgba(0,0,0,.06)', border: '1px solid #e5e7eb', textAlign: 'center' }}>
+            <div style={{ color: '#6b7280', fontSize: '.72rem', fontWeight: '700', textTransform: 'uppercase', marginBottom: '4px' }}>{k.label}</div>
+            <div style={{ fontSize: '1rem', fontWeight: '800', color: k.renk }}>{k.deger !== null ? Number(k.deger).toLocaleString('tr-TR', { minimumFractionDigits: 2 }) + ' ₺' : `%${tahsilatOrani}`}</div>
+          </div>
+        ))}
+      </div>
+      <div style={{ background: '#fff', borderRadius: '12px', boxShadow: '0 2px 8px rgba(0,0,0,.06)', border: '1px solid #e5e7eb', overflow: 'hidden' }}>
+        <div style={{ background: '#1a3c5e', color: '#fff', padding: '12px 20px', fontWeight: '700' }}>📄 Ekstre — {ayAdi(filtre.ay_bas)} {filtre.yil_bas} / {ayAdi(filtre.ay_bitis)} {filtre.yil_bitis}</div>
+        {hareketler.length === 0 ? (
+          <div style={{ padding: '40px', textAlign: 'center', color: '#9ca3af' }}>Bu dönemde kayıt bulunamadı.</div>
+        ) : (
+          <div style={{ overflowX: 'auto' }}>
+            <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '.85rem' }}>
+              <thead>
+                <tr style={{ background: '#f8fafc' }}>
+                  {['Dönem','Tür','Son Ödeme','Tahakkuk','Ödenen','Kalan','Durum'].map(h => (
+                    <th key={h} style={{ padding: '10px 12px', textAlign: ['Tahakkuk','Ödenen','Kalan'].includes(h) ? 'right' : 'left', color: '#6b7280', fontWeight: '700', fontSize: '.72rem', textTransform: 'uppercase', borderBottom: '2px solid #e5e7eb' }}>{h}</th>
+                  ))}
+                </tr>
+              </thead>
+              <tbody>
+                {hareketler.map((h, i) => {
+                  const [bg, fg] = h.durum === 'odendi' ? ['#dcfce7','#166534'] : h.durum === 'gecikti' ? ['#fee2e2','#991b1b'] : h.odenen > 0 ? ['#fef3c7','#92400e'] : ['#f3f4f6','#6b7280']
+                  const durumText = h.durum === 'odendi' ? '✓ Ödendi' : h.durum === 'gecikti' ? '⚠ Gecikti' : h.odenen > 0 ? '◑ Kısmi' : '○ Bekliyor'
+                  return (
+                    <tr key={h.id} style={{ background: i % 2 === 0 ? '#fff' : '#f9fafb' }}>
+                      <td style={{ padding: '9px 12px', fontWeight: '600' }}>{ayAdi(h.donem_ay)} {h.donem_yil}</td>
+                      <td style={{ padding: '9px 12px' }}>{h.aidat_turleri?.tur_adi}</td>
+                      <td style={{ padding: '9px 12px', color: '#6b7280' }}>{h.son_odeme_tarihi ? new Date(h.son_odeme_tarihi).toLocaleDateString('tr-TR') : '—'}</td>
+                      <td style={{ padding: '9px 12px', textAlign: 'right' }}>{Number(h.tutar).toLocaleString('tr-TR', { minimumFractionDigits: 2 })} ₺</td>
+                      <td style={{ padding: '9px 12px', textAlign: 'right', color: h.odenen > 0 ? '#16a34a' : '#6b7280' }}>{h.odenen > 0 ? Number(h.odenen).toLocaleString('tr-TR', { minimumFractionDigits: 2 }) + ' ₺' : '—'}</td>
+                      <td style={{ padding: '9px 12px', textAlign: 'right', color: h.kalan > 0 ? '#dc2626' : '#6b7280', fontWeight: h.kalan > 0 ? '700' : '400' }}>{h.kalan > 0 ? Number(h.kalan).toLocaleString('tr-TR', { minimumFractionDigits: 2 }) + ' ₺' : '—'}</td>
+                      <td style={{ padding: '9px 12px' }}><span style={{ background: bg, color: fg, padding: '2px 8px', borderRadius: '20px', fontSize: '.72rem', fontWeight: '700' }}>{durumText}</span></td>
+                    </tr>
+                  )
+                })}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </div>
+    </div>
+  )
+}
+
+export default function SakinPanel() {
+  const [kullanici, setKullanici]     = useState<any>(null)
+  const [daire, setDaire]             = useState<any>(null)
+  const [tahakkuklar, setTahakkuklar] = useState<any[]>([])
+  const [odemeler, setOdemeler]       = useState<any>({})
+  const [yukleniyor, setYukleniyor]   = useState(true)
+  const [aktifSayfa, setAktifSayfa]   = useState('borclarim')
+  const [menuAcik, setMenuAcik]       = useState(false)
   const router = useRouter()
 
   useEffect(() => {
     const yukle = async () => {
       const { data: { session } } = await supabase.auth.getSession()
       if (!session) { router.push('/giris'); return }
-
-      const { data: profil } = await supabase
-        .from('profiller').select('*')
-        .eq('id', session.user.id).single()
+      const { data: profil } = await supabase.from('profiller').select('*').eq('id', session.user.id).single()
       if (!profil) { router.push('/giris'); return }
       if (profil.rol === 'yonetici') { router.push('/dashboard'); return }
       setKullanici(profil)
-
-      const { data: daireData } = await supabase
-        .from('daireler').select('*')
-        .eq('kullanici_id', session.user.id).single()
-
+      const { data: daireData } = await supabase.from('daireler').select('*').eq('kullanici_id', session.user.id).single()
       if (daireData) {
-        const { data: blokData } = await supabase
-          .from('bloklar').select('blok_adi')
-          .eq('id', daireData.blok_id).single()
+        const { data: blokData } = await supabase.from('bloklar').select('blok_adi').eq('id', daireData.blok_id).single()
         setDaire({ ...daireData, blok_adi: blokData?.blok_adi || '' })
-
-        const { data: th } = await supabase
-          .from('tahakkuklar')
-          .select('*, aidat_turleri(tur_adi)')
-          .eq('daire_id', daireData.id)
-          .neq('durum', 'odendi')
-          .order('donem_yil').order('donem_ay')
+        const { data: th } = await supabase.from('tahakkuklar').select('*, aidat_turleri(tur_adi)').eq('daire_id', daireData.id).neq('durum', 'odendi').order('donem_yil').order('donem_ay')
         setTahakkuklar(th || [])
-
         if (th && th.length > 0) {
           const ids = th.map((t: any) => t.id)
-          const { data: odemeData } = await supabase
-            .from('odemeler').select('*').in('tahakkuk_id', ids)
+          const { data: odemeData } = await supabase.from('odemeler').select('*').in('tahakkuk_id', ids)
           const odemeMap: any = {}
-          odemeData?.forEach((o: any) => {
-            if (!odemeMap[o.tahakkuk_id]) odemeMap[o.tahakkuk_id] = 0
-            odemeMap[o.tahakkuk_id] += Number(o.tutar)
-          })
+          odemeData?.forEach((o: any) => { if (!odemeMap[o.tahakkuk_id]) odemeMap[o.tahakkuk_id] = 0; odemeMap[o.tahakkuk_id] += Number(o.tutar) })
           setOdemeler(odemeMap)
         }
       }
@@ -1306,312 +549,112 @@ export default function SakinPanel() {
     yukle()
   }, [])
 
-  const cikisYap = async () => {
-    await supabase.auth.signOut()
-    router.push('/giris')
-  }
+  const cikisYap = async () => { await supabase.auth.signOut(); router.push('/giris') }
 
-  const toplamAna = tahakkuklar.reduce((acc, t) => {
-    const odenen = odemeler[t.id] || 0
-    return acc + (Number(t.tutar) - odenen)
-  }, 0)
+  const toplamAna  = tahakkuklar.reduce((acc, t) => acc + Math.max(0, Number(t.tutar) - (odemeler[t.id] || 0)), 0)
+  const toplamFaiz = tahakkuklar.reduce((acc, t) => { const k = Math.max(0, Number(t.tutar) - (odemeler[t.id] || 0)); return t.son_odeme_tarihi && k > 0 ? acc + gecikFaizi(k, t.son_odeme_tarihi) : acc }, 0)
 
-  const toplamFaiz = tahakkuklar.reduce((acc, t) => {
-    const odenen = odemeler[t.id] || 0
-    const kalan = Number(t.tutar) - odenen
-    if (t.son_odeme_tarihi && kalan > 0)
-      return acc + gecikFaizi(kalan, t.son_odeme_tarihi)
-    return acc
-  }, 0)
-
-  if (yukleniyor) return (
-    <div style={{
-      minHeight: '100vh', display: 'flex', alignItems: 'center',
-      justifyContent: 'center', fontFamily: 'sans-serif', color: '#1a3c5e'
-    }}>
-      Yükleniyor...
-    </div>
-  )
+  if (yukleniyor) return <div style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', fontFamily: 'sans-serif', color: '#1a3c5e' }}>Yükleniyor...</div>
 
   const menuler = [
     { id: 'borclarim', ikon: '📋', etiket: 'Borçlarım' },
     { id: 'odeme_gecmisi', ikon: '🕐', etiket: 'Ödeme Geçmişi' },
+    { id: 'ekstre', ikon: '📄', etiket: 'Ekstre' },
     { id: 'odeme_bildir', ikon: '✉️', etiket: 'Ödeme Bildir' },
     { id: 'ariza_bildir', ikon: '🔧', etiket: 'Arıza Bildir' },
+    { id: 'profil', ikon: '👤', etiket: 'Profilim' },
     { id: 'duyurular', ikon: '📢', etiket: 'Duyurular' },
-	{ id: 'profil', ikon: '👤', etiket: 'Profilim' },
-	{ id: 'ekstre', ikon: '📄', etiket: 'Ekstre' },
   ]
 
   return (
-    <div style={{
-      minHeight: '100vh', background: '#f8fafc',
-      fontFamily: 'sans-serif', display: 'flex', flexDirection: 'column'
-    }}>
+    <div style={{ minHeight: '100vh', background: '#f8fafc', fontFamily: 'sans-serif' }}>
+
       {/* Topbar */}
-      <div style={{
-        background: '#1a3c5e', color: '#fff', padding: '12px 24px',
-        display: 'flex', justifyContent: 'space-between', alignItems: 'center',
-        position: 'sticky', top: 0, zIndex: 100
-      }}>
+      <div style={{ background: '#1a3c5e', color: '#fff', padding: '12px 20px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', position: 'sticky', top: 0, zIndex: 100 }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-          <span style={{ fontSize: '1.4rem' }}>🏢</span>
+          <button onClick={() => setMenuAcik(!menuAcik)} style={{ background: 'rgba(255,255,255,.15)', border: 'none', color: '#fff', borderRadius: '8px', padding: '6px 10px', cursor: 'pointer', fontSize: '1.2rem', lineHeight: 1 }}>☰</button>
           <div>
-            <div style={{ fontWeight: '700', fontSize: '1rem', lineHeight: '1' }}>
-              Aidat Yönetim Sistemi
-            </div>
-            {daire && (
-              <div style={{ fontSize: '.72rem', opacity: .7 }}>
-                {daire.blok_adi} Blok — Daire {daire.daire_no}
-              </div>
-            )}
+            <div style={{ fontWeight: '700', fontSize: '1rem', lineHeight: 1 }}>🏢 Aidat Sistemi</div>
+            {daire && <div style={{ fontSize: '.72rem', opacity: .7 }}>{daire.blok_adi} Blok — Daire {daire.daire_no}</div>}
           </div>
         </div>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-          <span style={{ fontSize: '.82rem', opacity: .8 }}>👤 {kullanici?.ad_soyad}</span>
-          <button onClick={cikisYap} style={{
-            background: 'rgba(255,255,255,.15)',
-            border: '1px solid rgba(255,255,255,.3)',
-            color: '#fff', padding: '5px 12px', borderRadius: '8px',
-            cursor: 'pointer', fontSize: '.78rem'
-          }}>Çıkış</button>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+          <span style={{ fontSize: '.8rem', opacity: .8 }}>👤 {kullanici?.ad_soyad?.split(' ')[0]}</span>
+          <button onClick={cikisYap} style={{ background: 'rgba(255,255,255,.15)', border: '1px solid rgba(255,255,255,.3)', color: '#fff', padding: '5px 10px', borderRadius: '8px', cursor: 'pointer', fontSize: '.78rem' }}>Çıkış</button>
         </div>
       </div>
 
-      <div style={{ display: 'flex', flex: 1 }}>
-        {/* Sidebar */}
-        <div style={{
-          width: '200px', background: '#1a3c5e',
-          minHeight: 'calc(100vh - 49px)', padding: '16px 0', flexShrink: 0
-        }}>
-          {menuler.map(m => (
-            <button key={m.id} onClick={() => setAktifSayfa(m.id)}
-              style={{
-                display: 'block', width: '100%', textAlign: 'left',
-                padding: '10px 20px', border: 'none', cursor: 'pointer',
-                background: aktifSayfa === m.id ? 'rgba(255,255,255,.15)' : 'transparent',
-                color: aktifSayfa === m.id ? '#fff' : 'rgba(255,255,255,.7)',
-                fontSize: '.85rem',
-                fontWeight: aktifSayfa === m.id ? '700' : '400',
-                borderLeft: aktifSayfa === m.id
-                  ? '3px solid #f0a500' : '3px solid transparent',
-              }}>
-              {m.ikon} {m.etiket}
-            </button>
-          ))}
-        </div>
+      {/* Overlay */}
+      {menuAcik && <div onClick={() => setMenuAcik(false)} style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,.5)', zIndex: 98 }} />}
 
-        {/* İçerik */}
-        <div style={{ flex: 1, padding: '24px', overflowY: 'auto' }}>
+      {/* Sidebar */}
+      <div style={{ width: '220px', background: '#1a3c5e', padding: '16px 0', position: 'fixed', top: '49px', left: 0, bottom: 0, transform: menuAcik ? 'translateX(0)' : 'translateX(-100%)', transition: 'transform .25s ease', zIndex: 99, overflowY: 'auto' }}>
+        {menuler.map(m => (
+          <button key={m.id} onClick={() => { setAktifSayfa(m.id); setMenuAcik(false) }}
+            style={{ display: 'block', width: '100%', textAlign: 'left', padding: '12px 20px', border: 'none', cursor: 'pointer', background: aktifSayfa === m.id ? 'rgba(255,255,255,.15)' : 'transparent', color: aktifSayfa === m.id ? '#fff' : 'rgba(255,255,255,.7)', fontSize: '.9rem', fontWeight: aktifSayfa === m.id ? '700' : '400', borderLeft: aktifSayfa === m.id ? '3px solid #f0a500' : '3px solid transparent' }}>
+            {m.ikon} {m.etiket}
+          </button>
+        ))}
+      </div>
 
-          {/* BORÇLARIM */}
-          {aktifSayfa === 'borclarim' && (
-            <div>
-              <h2 style={{ color: '#1a3c5e', marginBottom: '20px' }}>📋 Borçlarım</h2>
-              {!daire ? (
-                <div style={{
-                  background: '#fef3c7', border: '1px solid #fcd34d',
-                  borderRadius: '10px', padding: '16px', color: '#92400e'
-                }}>
-                  Henüz bir daireye atanmadınız.
-                </div>
-              ) : tahakkuklar.length === 0 ? (
-                <div style={{
-                  background: '#dcfce7', border: '1px solid #86efac',
-                  borderRadius: '10px', padding: '24px', textAlign: 'center',
-                  color: '#166534', fontSize: '1.1rem', fontWeight: '700'
-                }}>
-                  ✅ Tüm borçlarınız ödenmiş! 🎉
-                </div>
-              ) : (
-                <>
-                  <div style={{
-                    display: 'grid', gridTemplateColumns: 'repeat(3,1fr)',
-                    gap: '12px', marginBottom: '20px'
-                  }}>
-                    {[
-                      { etiket: 'Ana Borç', deger: toplamAna, renk: '#dc2626' },
-                      { etiket: 'Gecikme Faizi', deger: toplamFaiz, renk: '#d97706' },
-                      { etiket: 'Genel Toplam', deger: toplamAna + toplamFaiz, renk: '#1a3c5e' },
-                    ].map(k => (
-                      <div key={k.etiket} style={{
-                        background: '#fff', borderRadius: '12px', padding: '16px',
-                        boxShadow: '0 2px 8px rgba(0,0,0,.06)',
-                        border: '1px solid #e5e7eb', textAlign: 'center'
-                      }}>
-                        <div style={{
-                          color: '#6b7280', fontSize: '.75rem', fontWeight: '700',
-                          textTransform: 'uppercase', letterSpacing: '.05em',
-                          marginBottom: '4px'
-                        }}>
-                          {k.etiket}
-                        </div>
-                        <div style={{ fontSize: '1.2rem', fontWeight: '800', color: k.renk }}>
-                          {paraFormat(k.deger)}
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-
-                  <div style={{
-                    background: '#fff', borderRadius: '12px',
-                    boxShadow: '0 2px 8px rgba(0,0,0,.06)',
-                    border: '1px solid #e5e7eb', overflow: 'hidden'
-                  }}>
-                    <div style={{
-                      background: '#dc2626', color: '#fff',
-                      padding: '12px 20px', fontWeight: '700'
-                    }}>
-                      📋 Bekleyen Borçlarım
+      {/* İçerik */}
+      <div style={{ padding: '24px', maxWidth: '1000px', margin: '0 auto' }}>
+        {aktifSayfa === 'borclarim' && (
+          <div>
+            <h2 style={{ color: '#1a3c5e', marginBottom: '20px' }}>📋 Borçlarım</h2>
+            {!daire ? (
+              <div style={{ background: '#fef3c7', border: '1px solid #fcd34d', borderRadius: '10px', padding: '16px', color: '#92400e' }}>Henüz bir daireye atanmadınız.</div>
+            ) : tahakkuklar.length === 0 ? (
+              <div style={{ background: '#dcfce7', border: '1px solid #86efac', borderRadius: '10px', padding: '24px', textAlign: 'center', color: '#166534', fontWeight: '700' }}>✅ Tüm borçlarınız ödenmiş! 🎉</div>
+            ) : (
+              <>
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(130px, 1fr))', gap: '12px', marginBottom: '20px' }}>
+                  {[{ etiket: 'Ana Borç', deger: toplamAna, renk: '#dc2626' }, { etiket: 'Gecikme Faizi', deger: toplamFaiz, renk: '#d97706' }, { etiket: 'Genel Toplam', deger: toplamAna + toplamFaiz, renk: '#1a3c5e' }].map(k => (
+                    <div key={k.etiket} style={{ background: '#fff', borderRadius: '12px', padding: '16px', boxShadow: '0 2px 8px rgba(0,0,0,.06)', border: '1px solid #e5e7eb', textAlign: 'center' }}>
+                      <div style={{ color: '#6b7280', fontSize: '.72rem', fontWeight: '700', textTransform: 'uppercase', marginBottom: '4px' }}>{k.etiket}</div>
+                      <div style={{ fontSize: '1.1rem', fontWeight: '800', color: k.renk }}>{paraFormat(k.deger)}</div>
                     </div>
-                    {tahakkuklar.map((t, i) => {
-                      const odenen = odemeler[t.id] || 0
-                      const kalan = Number(t.tutar) - odenen
-                      const faiz = t.son_odeme_tarihi && kalan > 0
-                        ? gecikFaizi(kalan, t.son_odeme_tarihi) : 0
-                      const gecikti = t.son_odeme_tarihi &&
-                        new Date(t.son_odeme_tarihi) < new Date()
-                      const kismi = odenen > 0
-                      return (
-                        <div key={t.id} style={{
-                          padding: '14px 20px',
-                          borderBottom: i < tahakkuklar.length - 1
-                            ? '1px solid #f3f4f6' : 'none',
-                          background: kismi ? '#fffbeb' : '#fff'
-                        }}>
-                          <div style={{
-                            display: 'flex', justifyContent: 'space-between',
-                            alignItems: 'flex-start', gap: '12px', flexWrap: 'wrap'
-                          }}>
-                            <div>
-                              <div style={{ fontWeight: '700', color: '#374151' }}>
-                                {t.aidat_turleri?.tur_adi}
-                              </div>
-                              <div style={{ color: '#6b7280', fontSize: '.8rem' }}>
-                                {ayAdi(t.donem_ay)} {t.donem_yil}
-                              </div>
-                              {t.son_odeme_tarihi && (
-                                <div style={{
-                                  color: gecikti ? '#dc2626' : '#6b7280',
-                                  fontSize: '.75rem',
-                                  fontWeight: gecikti ? '700' : '400'
-                                }}>
-                                  Son: {new Date(t.son_odeme_tarihi)
-                                    .toLocaleDateString('tr-TR')}
-                                </div>
-                              )}
-                            </div>
-                            <div style={{ textAlign: 'right' }}>
-                              {odenen > 0 && (
-                                <div style={{ fontSize: '.8rem', marginBottom: '2px' }}>
-                                  <span style={{ color: '#6b7280' }}>Ödenen: </span>
-                                  <span style={{ color: '#16a34a', fontWeight: '700' }}>
-                                    {paraFormat(odenen)}
-                                  </span>
-                                </div>
-                              )}
-                              {faiz > 0 && (
-                                <div style={{ fontSize: '.8rem', marginBottom: '2px' }}>
-                                  <span style={{ color: '#6b7280' }}>Faiz: </span>
-                                  <span style={{ color: '#d97706', fontWeight: '700' }}>
-                                    {paraFormat(faiz)}
-                                  </span>
-                                </div>
-                              )}
-                              <div style={{
-                                fontWeight: '800', fontSize: '1.1rem', color: '#dc2626'
-                              }}>
-                                {paraFormat(kalan + faiz)}
-                              </div>
-                              <div style={{
-                                display: 'flex', gap: '4px',
-                                justifyContent: 'flex-end', marginTop: '2px'
-                              }}>
-                                {kismi && (
-                                  <span style={{
-                                    background: '#fef3c7', color: '#92400e',
-                                    padding: '1px 6px', borderRadius: '20px',
-                                    fontSize: '.7rem', fontWeight: '700'
-                                  }}>Kısmi</span>
-                                )}
-                                <span style={{
-                                  background: gecikti ? '#fee2e2' : '#fef3c7',
-                                  color: gecikti ? '#dc2626' : '#d97706',
-                                  padding: '1px 6px', borderRadius: '20px',
-                                  fontSize: '.7rem', fontWeight: '700'
-                                }}>
-                                  {gecikti ? 'Gecikti' : 'Bekliyor'}
-                                </span>
-                              </div>
-                            </div>
+                  ))}
+                </div>
+                <div style={{ background: '#fff', borderRadius: '12px', boxShadow: '0 2px 8px rgba(0,0,0,.06)', border: '1px solid #e5e7eb', overflow: 'hidden' }}>
+                  <div style={{ background: '#dc2626', color: '#fff', padding: '12px 20px', fontWeight: '700' }}>📋 Bekleyen Borçlarım</div>
+                  {tahakkuklar.map((t, i) => {
+                    const odenen = odemeler[t.id] || 0
+                    const kalan = Number(t.tutar) - odenen
+                    const faiz = t.son_odeme_tarihi && kalan > 0 ? gecikFaizi(kalan, t.son_odeme_tarihi) : 0
+                    const gecikti = t.son_odeme_tarihi && new Date(t.son_odeme_tarihi) < new Date()
+                    return (
+                      <div key={t.id} style={{ padding: '14px 20px', borderBottom: i < tahakkuklar.length - 1 ? '1px solid #f3f4f6' : 'none', background: odenen > 0 ? '#fffbeb' : '#fff' }}>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: '12px', flexWrap: 'wrap' }}>
+                          <div>
+                            <div style={{ fontWeight: '700', color: '#374151' }}>{t.aidat_turleri?.tur_adi}</div>
+                            <div style={{ color: '#6b7280', fontSize: '.8rem' }}>{ayAdi(t.donem_ay)} {t.donem_yil}</div>
+                            {t.son_odeme_tarihi && <div style={{ color: gecikti ? '#dc2626' : '#6b7280', fontSize: '.75rem' }}>Son: {new Date(t.son_odeme_tarihi).toLocaleDateString('tr-TR')}</div>}
+                          </div>
+                          <div style={{ textAlign: 'right' }}>
+                            {odenen > 0 && <div style={{ fontSize: '.8rem' }}>Ödenen: <span style={{ color: '#16a34a', fontWeight: '700' }}>{paraFormat(odenen)}</span></div>}
+                            {faiz > 0 && <div style={{ fontSize: '.8rem' }}>Faiz: <span style={{ color: '#d97706', fontWeight: '700' }}>{paraFormat(faiz)}</span></div>}
+                            <div style={{ fontWeight: '800', fontSize: '1.1rem', color: '#dc2626' }}>{paraFormat(kalan + faiz)}</div>
+                            <span style={{ background: gecikti ? '#fee2e2' : '#fef3c7', color: gecikti ? '#dc2626' : '#d97706', padding: '1px 6px', borderRadius: '20px', fontSize: '.7rem', fontWeight: '700' }}>{gecikti ? 'Gecikti' : 'Bekliyor'}</span>
                           </div>
                         </div>
-                      )
-                    })}
-                    <div style={{
-                      padding: '14px 20px', background: '#f8fafc',
-                      display: 'flex', justifyContent: 'space-between',
-                      fontWeight: '800', color: '#1a3c5e', fontSize: '1rem'
-                    }}>
-                      <span>Genel Toplam</span>
-                      <span>{paraFormat(toplamAna + toplamFaiz)}</span>
-                    </div>
+                      </div>
+                    )
+                  })}
+                  <div style={{ padding: '14px 20px', background: '#f8fafc', display: 'flex', justifyContent: 'space-between', fontWeight: '800', color: '#1a3c5e' }}>
+                    <span>Genel Toplam</span><span>{paraFormat(toplamAna + toplamFaiz)}</span>
                   </div>
-                  <p style={{ color: '#6b7280', fontSize: '.8rem', marginTop: '12px' }}>
-                    ℹ️ Ödeme için yöneticiyle iletişime geçin veya
-                    "Ödeme Bildir" bölümünü kullanın.
-                  </p>
-                </>
-              )}
-            </div>
-          )}
-
-          {/* ÖDEME GEÇMİŞİ */}
-          {aktifSayfa === 'odeme_gecmisi' && (
-            <OdemeGecmisi daireId={daire?.id} />
-          )}
-
-          {/* ÖDEME BİLDİR */}
-          {aktifSayfa === 'odeme_bildir' && (
-            <OdemeBildir daireId={daire?.id} />
-          )}
-
-          {/* ARIZA BİLDİR */}
-          {aktifSayfa === 'ariza_bildir' && (
-            <ArizaBildir daireId={daire?.id} kullaniciId={kullanici?.id} />
-          )}
-		  
-		  {/* EKSTRE */}
-{aktifSayfa === 'ekstre' && (
-  <Ekstre daireId={daire?.id} kullanici={kullanici} />
-)}
-		  {/* PROFİL */}
-{aktifSayfa === 'profil' && (
-  <Profil kullanici={kullanici} setKullanici={setKullanici} />
-)}
-		            {/* DUYURULAR */}
-          {aktifSayfa === 'duyurular' && (
-            <Duyurular />
-          )}
-
-{aktifSayfa !== 'borclarim' &&
- aktifSayfa !== 'odeme_gecmisi' &&
- aktifSayfa !== 'odeme_bildir' &&
- aktifSayfa !== 'ariza_bildir' &&
- aktifSayfa !== 'ekstre' &&
- aktifSayfa !== 'profil' &&
- aktifSayfa !== 'duyurular' && (
- 
-            <div style={{
-              textAlign: 'center', padding: '60px 20px', color: '#6b7280'
-            }}>
-              <div style={{ fontSize: '3rem', marginBottom: '16px' }}>🚧</div>
-              <h3 style={{ color: '#1a3c5e' }}>Yakında</h3>
-              <p>Bu bölüm geliştiriliyor...</p>
-            </div>
-          )}
-
-        </div>
+                </div>
+              </>
+            )}
+          </div>
+        )}
+        {aktifSayfa === 'odeme_gecmisi' && <OdemeGecmisi daireId={daire?.id} />}
+        {aktifSayfa === 'ekstre' && <Ekstre daireId={daire?.id} kullanici={kullanici} />}
+        {aktifSayfa === 'odeme_bildir' && <OdemeBildir daireId={daire?.id} />}
+        {aktifSayfa === 'ariza_bildir' && <ArizaBildir daireId={daire?.id} kullaniciId={kullanici?.id} />}
+        {aktifSayfa === 'profil' && <Profil kullanici={kullanici} setKullanici={setKullanici} />}
+        {aktifSayfa === 'duyurular' && <Duyurular />}
       </div>
     </div>
   )
