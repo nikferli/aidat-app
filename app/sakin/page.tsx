@@ -267,7 +267,7 @@ function Ekstre({ daireId, kullanici }: { daireId: number, kullanici: any }) {
       .wrap{max-width:780px;margin:40px auto}
       .header{background:linear-gradient(135deg,#1a3c5e,#2e7d9f);color:#fff;padding:24px 32px;border-radius:12px 12px 0 0;display:flex;justify-content:space-between}
       .header h2{margin:0;font-size:1.1rem}.header .meta{text-align:right;font-size:.75rem;opacity:.85}
-      .info{display:grid;grid-template-columns:1fr 1fr;gap:0;background:#f8fafc;border:1px solid #e5e7eb;border-top:none;padding:16px 32px}
+      .info{display:grid;grid-template-columns:repeat(auto-fit, minmax(300px, 1fr));gap:0;background:#f8fafc;border:1px solid #e5e7eb;border-top:none;padding:16px 32px}
       .info-item .label{font-size:.7rem;color:#6b7280;font-weight:600;text-transform:uppercase}
       .info-item .value{font-weight:700;font-size:.9rem}
       .donem{background:#1a3c5e;color:#fff;text-align:center;padding:8px;font-weight:700;font-size:.85rem}
@@ -578,7 +578,7 @@ function Profil({ kullanici, setKullanici }: { kullanici: any, setKullanici: any
           {istatistik && (
             <>
               <hr style={{ margin: '12px 0' }} />
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px' }}>
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))', gap: '8px' }}>
                 <div style={{ textAlign: 'center' }}>
                   <div style={{ fontWeight: '800', fontSize: '1.2rem', color: '#16a34a' }}>{istatistik.odemeSayisi}</div>
                   <div style={{ color: '#6b7280', fontSize: '.75rem' }}>Ödeme</div>
@@ -637,7 +637,7 @@ function Profil({ kullanici, setKullanici }: { kullanici: any, setKullanici: any
                 🔒 Şifre Değiştir <span style={{ color: '#9ca3af', fontWeight: '400', fontSize: '.8rem' }}>(boş bırakırsanız değişmez)</span>
               </div>
               <div style={{ padding: '20px' }}>
-                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))', gap: '12px' }}>
                   <div>
                     <label style={{ display: 'block', fontWeight: '700', fontSize: '.82rem', color: '#374151', marginBottom: '6px' }}>Yeni Şifre</label>
                     <input type="password" value={sifre.yeni} minLength={6}
@@ -802,7 +802,7 @@ function ArizaBildir({ daireId, kullaniciId }: { daireId: number, kullaniciId: s
   return (
     <div>
       <h2 style={{ color: '#1a3c5e', marginBottom: '20px' }}>🔧 Arıza / Talep Bildir</h2>
-      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '20px', alignItems: 'flex-start' }}>
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))', gap: '20px', alignItems: 'flex-start' }}>
 
         {/* Form */}
         <div style={{ background: '#fff', borderRadius: '12px', boxShadow: '0 2px 8px rgba(0,0,0,.06)', border: '1px solid #e5e7eb', overflow: 'hidden' }}>
@@ -1016,7 +1016,7 @@ function OdemeBildir({ daireId }: { daireId: number }) {
       <h2 style={{ color: '#1a3c5e', marginBottom: '20px' }}>✉️ Ödeme Bildir</h2>
 
       <div style={{
-        display: 'grid', gridTemplateColumns: '1fr 1fr',
+        display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))',
         gap: '20px', alignItems: 'flex-start'
       }}>
         {/* Form */}

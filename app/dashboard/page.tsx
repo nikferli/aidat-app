@@ -695,7 +695,7 @@ const odemeYenile = async () => {
           {aktifSayfa === 'sakinler' && (
             <div>
               <h2 style={{ color: '#1a3c5e', marginBottom: '20px' }}>👥 Sakin Yönetimi</h2>
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '20px', alignItems: 'flex-start' }}>
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))', gap: '20px', alignItems: 'flex-start' }}>
                 <div style={{ background: '#fff', borderRadius: '12px', boxShadow: '0 2px 8px rgba(0,0,0,.06)', border: '1px solid #e5e7eb', overflow: 'hidden' }}>
                   <div style={{ background: '#1a3c5e', color: '#fff', padding: '12px 20px', fontWeight: '700' }}>➕ Yeni Sakin Ekle</div>
                   <div style={{ padding: '20px' }}>
@@ -764,7 +764,7 @@ const odemeYenile = async () => {
           {aktifSayfa === 'tahakkuklar' && (
             <div>
               <h2 style={{ color: '#1a3c5e', marginBottom: '20px' }}>📋 Tahakkuk Oluştur</h2>
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '20px', alignItems: 'flex-start' }}>
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))', gap: '20px', alignItems: 'flex-start' }}>
                 <div style={{ background: '#fff', borderRadius: '12px', boxShadow: '0 2px 8px rgba(0,0,0,.06)', border: '1px solid #e5e7eb', overflow: 'hidden' }}>
                   <div style={{ background: '#1a3c5e', color: '#fff', padding: '12px 20px', fontWeight: '700' }}>📋 Yeni Tahakkuk</div>
                   <div style={{ padding: '20px' }}>
@@ -933,7 +933,7 @@ const odemeYenile = async () => {
           {aktifSayfa === 'duyurular' && (
             <div>
               <h2 style={{ color: '#1a3c5e', marginBottom: '20px' }}>📢 Duyuru Yönetimi</h2>
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '20px', alignItems: 'flex-start' }}>
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))', gap: '20px', alignItems: 'flex-start' }}>
                 <div style={{ background: '#fff', borderRadius: '12px', boxShadow: '0 2px 8px rgba(0,0,0,.06)', border: '1px solid #e5e7eb', overflow: 'hidden' }}>
                   <div style={{ background: '#1a3c5e', color: '#fff', padding: '12px 20px', fontWeight: '700' }}>📢 Yeni Duyuru</div>
                   <div style={{ padding: '20px' }}>
@@ -996,7 +996,7 @@ const odemeYenile = async () => {
   <div>
     <h2 style={{ color: '#1a3c5e', marginBottom: '20px' }}>💸 Gider Yönetimi</h2>
 
-    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '20px', alignItems: 'flex-start' }}>
+    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))', gap: '20px', alignItems: 'flex-start' }}>
 
       {/* Form */}
       <div style={{ background: '#fff', borderRadius: '12px', boxShadow: '0 2px 8px rgba(0,0,0,.06)', border: '1px solid #e5e7eb', overflow: 'hidden' }}>
@@ -1036,7 +1036,7 @@ const odemeYenile = async () => {
                 style={{ width: '100%', padding: '9px 12px', borderRadius: '8px', border: '1px solid #d1d5db', fontSize: '.85rem', boxSizing: 'border-box' }} />
             </div>
 
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px', marginBottom: '14px' }}>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))', gap: '12px', marginBottom: '14px' }}>
               <div>
                 <label style={{ display: 'block', fontWeight: '700', fontSize: '.82rem', color: '#374151', marginBottom: '6px' }}>Tutar (₺)</label>
                 <input type="number" step="0.01" required value={giderForm.tutar}
@@ -1072,7 +1072,7 @@ const odemeYenile = async () => {
       {/* Gider Listesi */}
       <div>
         {/* Özet */}
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px', marginBottom: '16px' }}>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))', gap: '12px', marginBottom: '16px' }}>
           {[
             { label: 'Bu Ay Toplam', deger: giderler.filter(g => new Date(g.gider_tarihi).getMonth() === new Date().getMonth() && new Date(g.gider_tarihi).getFullYear() === new Date().getFullYear()).reduce((acc, g) => acc + Number(g.tutar), 0), renk: '#dc2626' },
             { label: 'Bu Yıl Toplam', deger: giderler.filter(g => new Date(g.gider_tarihi).getFullYear() === new Date().getFullYear()).reduce((acc, g) => acc + Number(g.tutar), 0), renk: '#1a3c5e' },
@@ -1142,7 +1142,7 @@ const odemeYenile = async () => {
       </select>
     </div>
 
-    <div style={{ display: 'grid', gridTemplateColumns: '1fr 2fr', gap: '20px', alignItems: 'flex-start' }}>
+	<div style={{ display: 'grid', gridTemplateColumns: 'minmax(280px, 1fr) 2fr', gap: '20px', alignItems: 'flex-start', flexWrap: 'wrap' }}>
 
       {/* Form */}
       <div style={{ background: '#fff', borderRadius: '12px', boxShadow: '0 2px 8px rgba(0,0,0,.06)', border: '1px solid #e5e7eb', overflow: 'hidden' }}>
@@ -1398,7 +1398,7 @@ const odemeYenile = async () => {
   <div>
     <h2 style={{ color: '#1a3c5e', marginBottom: '20px' }}>📈 Aidat Artış Yönetimi</h2>
 
-    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '20px', alignItems: 'flex-start' }}>
+    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))', gap: '20px', alignItems: 'flex-start' }}>
 
       {/* Form */}
       <div style={{ background: '#fff', borderRadius: '12px', boxShadow: '0 2px 8px rgba(0,0,0,.06)', border: '1px solid #e5e7eb', overflow: 'hidden' }}>
@@ -1555,7 +1555,7 @@ const odemeYenile = async () => {
 {aktifSayfa === 'daireler' && (
   <div>
     <h2 style={{ color: '#1a3c5e', marginBottom: '20px' }}>🏠 Daire Eşleştirme</h2>
-    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '20px', alignItems: 'flex-start' }}>
+    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))', gap: '20px', alignItems: 'flex-start' }}>
 
       {/* Form */}
       <div style={{ background: '#fff', borderRadius: '12px', boxShadow: '0 2px 8px rgba(0,0,0,.06)', border: '1px solid #e5e7eb', overflow: 'hidden' }}>
