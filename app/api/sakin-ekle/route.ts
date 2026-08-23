@@ -4,7 +4,6 @@ import { NextResponse } from 'next/server'
 export async function POST(request: Request) {
   const { email, sifre, ad_soyad, telefon } = await request.json()
 
-  // Admin client — service role key ile
   const supabaseAdmin = createClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
     process.env.SUPABASE_SERVICE_ROLE_KEY!
@@ -28,13 +27,33 @@ export async function POST(request: Request) {
       id: authData.user.id,
       ad_soyad,
       telefon,
-	  email,        // ← bunu ekleyin
+      email,
       rol: 'sakin',
       durum: 'aktif'
     })
 
   if (profilError) {
     return NextResponse.json({ error: profilError.message }, { status: 400 })
+  }
+
+  // Hoş geldin maili gönder
+  try {
+    await fetch(`${process.env.NEXT_PUBLIC_SITE_URL}/api/email`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        tip: 'yeni_sakin',
+        alici: email,
+        aliciAd: ad_soyad,
+        veri: {
+          sifre,
+          site_url: process.env.NEXT_PUBLIC_SITE_URL
+        }
+      })
+    })
+  } catch (e) {
+    // Mail hatası sistemi durdurmasın
+    console.error('Hoş geldin maili gönderilemedi:', e)
   }
 
   return NextResponse.json({ success: true, userId: authData.user.id })

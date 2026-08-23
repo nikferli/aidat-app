@@ -298,27 +298,54 @@ const arizaDurumGuncelle = async (id: number, durum: string) => {
     setSakinEkleYukleniyor(false)
   }
 
-  const duyuruEkle = async (e: React.FormEvent) => {
-    e.preventDefault()
-    setDuyuruYukleniyor(true)
-    setDuyuruMesaj(null)
+const duyuruEkle = async (e: React.FormEvent) => {
+  e.preventDefault()
+  setDuyuruYukleniyor(true)
+  setDuyuruMesaj(null)
 
-    const { error } = await supabase.from('duyurular').insert({
-      baslik: duyuruForm.baslik,
-      icerik: duyuruForm.icerik,
-      yayinlayan_id: kullanici?.id
-    })
+  const { error } = await supabase.from('duyurular').insert({
+    baslik: duyuruForm.baslik,
+    icerik: duyuruForm.icerik,
+    yayinlayan_id: kullanici?.id
+  })
 
-    if (error) {
-      setDuyuruMesaj({ tip: 'hata', metin: error.message })
-    } else {
-      setDuyuruMesaj({ tip: 'basari', metin: 'Duyuru yayınlandı!' })
-      setDuyuruForm({ baslik: '', icerik: '' })
-      const { data } = await supabase.from('duyurular').select('*').order('olusturma', { ascending: false })
-      setDuyurular(data || [])
+  if (error) {
+    setDuyuruMesaj({ tip: 'hata', metin: error.message })
+  } else {
+    // Tüm aktif sakinlere mail gönder
+    const { data: sakinMailler } = await supabase
+      .from('profiller')
+      .select('ad_soyad, email')
+      .eq('rol', 'sakin')
+      .eq('durum', 'aktif')
+      .not('email', 'is', null)
+
+    let mailSayisi = 0
+    for (const s of sakinMailler || []) {
+      if (!s.email) continue
+      await fetch('/api/email', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          tip: 'duyuru',
+          alici: s.email,
+          aliciAd: s.ad_soyad,
+          veri: {
+            baslik: duyuruForm.baslik,
+            icerik: duyuruForm.icerik
+          }
+        })
+      })
+      mailSayisi++
     }
-    setDuyuruYukleniyor(false)
+
+    setDuyuruMesaj({ tip: 'basari', metin: `Duyuru yayınlandı! ${mailSayisi} sakine e-posta gönderildi.` })
+    setDuyuruForm({ baslik: '', icerik: '' })
+    const { data } = await supabase.from('duyurular').select('*').order('olusturma', { ascending: false })
+    setDuyurular(data || [])
   }
+  setDuyuruYukleniyor(false)
+}
 
   const duyuruSil = async (id: number) => {
     await supabase.from('duyurular').delete().eq('id', id)
