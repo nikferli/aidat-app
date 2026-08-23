@@ -77,13 +77,13 @@ export default function Dashboard() {
       const { data: sakinData } = await supabase.from('profiller').select('*').eq('rol', 'sakin').order('ad_soyad')
       setSakinler(sakinData || [])
 
-const { data: bildirimData } = await supabase
+	  const { data: bildirimData } = await supabase
   .from('odeme_bildirimleri')
   .select('*, profiller(ad_soyad, email), tahakkuklar(donem_yil, donem_ay, aidat_turleri(tur_adi))')
   .eq('durum', 'bekliyor')
-  .order('olusturma', { ascending: false })		
+  .order('olusturma', { ascending: false })
       setBildirimler(bildirimData || [])
-
+	  
 const { data: arizaData } = await supabase
   .from('ariza_talepler')
   .select('*, profiller(ad_soyad, email)')
