@@ -28,6 +28,7 @@ export async function POST(request: Request) {
       id: authData.user.id,
       ad_soyad,
       telefon,
+	  email,        // ← bunu ekleyin
       rol: 'sakin',
       durum: 'aktif'
     })
