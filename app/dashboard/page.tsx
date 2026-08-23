@@ -77,16 +77,18 @@ export default function Dashboard() {
       const { data: sakinData } = await supabase.from('profiller').select('*').eq('rol', 'sakin').order('ad_soyad')
       setSakinler(sakinData || [])
 
-      const { data: bildirimData } = await supabase
-        .from('odeme_bildirimleri')
-        .select('*, profiller(ad_soyad), tahakkuklar(donem_yil, donem_ay, aidat_turleri(tur_adi))')
-        .eq('durum', 'bekliyor').order('olusturma', { ascending: false })
+const { data: bildirimData } = await supabase
+  .from('odeme_bildirimleri')
+  .select('*, profiller(ad_soyad, email), tahakkuklar(donem_yil, donem_ay, aidat_turleri(tur_adi))')
+  .eq('durum', 'bekliyor')
+  .order('olusturma', { ascending: false })		
       setBildirimler(bildirimData || [])
 
-      const { data: arizaData } = await supabase
-        .from('ariza_talepler').select('*, profiller(ad_soyad)')
-        .eq('durum', 'acik').order('olusturma', { ascending: false })
-      setArizalar(arizaData || [])
+const { data: arizaData } = await supabase
+  .from('ariza_talepler')
+  .select('*, profiller(ad_soyad, email)')
+  .eq('durum', 'acik')
+  .order('olusturma', { ascending: false })	  
 
       const { data: daireData } = await supabase
         .from('daireler').select('*, bloklar(blok_adi), profiller(ad_soyad)')
@@ -109,39 +111,120 @@ export default function Dashboard() {
     router.push('/giris')
   }
 
-  const bildirimOnayla = async (id: number, tahakkukId: number, tutar: number) => {
-    await supabase.from('odemeler').insert({
-      tahakkuk_id: tahakkukId,
-      odeme_tarihi: new Date().toISOString().split('T')[0],
-      tutar, odeme_yontemi: 'havale', aciklama: 'Sakin bildirimi onaylandı'
+const bildirimOnayla = async (id: number, tahakkukId: number, tutar: number) => {
+  // Bildirim detayını al
+  const bildirim = bildirimler.find(b => b.id === id)
+
+  // Ödemeyi kaydet
+  await supabase.from('odemeler').insert({
+    tahakkuk_id: tahakkukId,
+    odeme_tarihi: new Date().toISOString().split('T')[0],
+    tutar, odeme_yontemi: 'havale',
+    aciklama: 'Sakin bildirimi onaylandı'
+  })
+
+  // Tahakkuk durumunu güncelle
+  const { data: tahakkuk } = await supabase
+    .from('tahakkuklar').select('tutar').eq('id', tahakkukId).single()
+  const { data: odemeToplamData } = await supabase
+    .from('odemeler').select('tutar').eq('tahakkuk_id', tahakkukId)
+  const odenenToplam = odemeToplamData?.reduce((acc, o) => acc + Number(o.tutar), 0) || 0
+  if (tahakkuk && odenenToplam >= Number(tahakkuk.tutar)) {
+    await supabase.from('tahakkuklar').update({ durum: 'odendi' }).eq('id', tahakkukId)
+  }
+
+  // Bildirimi güncelle
+  await supabase.from('odeme_bildirimleri').update({ durum: 'onaylandi' }).eq('id', id)
+
+  // E-posta gönder
+  if (bildirim?.profiller?.email) {
+    const aylar = ['','Ocak','Şubat','Mart','Nisan','Mayıs','Haziran',
+                   'Temmuz','Ağustos','Eylül','Ekim','Kasım','Aralık']
+    await fetch('/api/email', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        tip: 'odeme_onaylandi',
+        alici: bildirim.profiller.email,
+        aliciAd: bildirim.profiller.ad_soyad,
+        veri: {
+          tur_adi: bildirim.tahakkuklar?.aidat_turleri?.tur_adi,
+          donem: `${aylar[bildirim.tahakkuklar?.donem_ay]} ${bildirim.tahakkuklar?.donem_yil}`,
+          tutar: Number(tutar).toLocaleString('tr-TR', { minimumFractionDigits: 2 }),
+          tarih: new Date().toLocaleDateString('tr-TR'),
+        }
+      })
     })
-    await supabase.from('odeme_bildirimleri').update({ durum: 'onaylandi' }).eq('id', id)
-    const { data } = await supabase
-      .from('odeme_bildirimleri')
-      .select('*, profiller(ad_soyad), tahakkuklar(donem_yil, donem_ay, aidat_turleri(tur_adi))')
-      .eq('durum', 'bekliyor').order('olusturma', { ascending: false })
-    setBildirimler(data || [])
-    setIstatistik((s: any) => ({ ...s, bekleyenBildirim: Math.max(0, (s.bekleyenBildirim || 1) - 1) }))
   }
 
-  const bildirimReddet = async (id: number) => {
-    await supabase.from('odeme_bildirimleri').update({ durum: 'reddedildi' }).eq('id', id)
-    const { data } = await supabase
-      .from('odeme_bildirimleri')
-      .select('*, profiller(ad_soyad), tahakkuklar(donem_yil, donem_ay, aidat_turleri(tur_adi))')
-      .eq('durum', 'bekliyor').order('olusturma', { ascending: false })
-    setBildirimler(data || [])
-    setIstatistik((s: any) => ({ ...s, bekleyenBildirim: Math.max(0, (s.bekleyenBildirim || 1) - 1) }))
+  // Listeyi yenile
+  const { data } = await supabase
+    .from('odeme_bildirimleri')
+    .select('*, profiller(ad_soyad, email), tahakkuklar(donem_yil, donem_ay, aidat_turleri(tur_adi))')
+    .eq('durum', 'bekliyor').order('olusturma', { ascending: false })
+  setBildirimler(data || [])
+  setIstatistik((s: any) => ({ ...s, bekleyenBildirim: Math.max(0, (s.bekleyenBildirim || 1) - 1) }))
+}
+const bildirimReddet = async (id: number) => {
+  const bildirim = bildirimler.find(b => b.id === id)
+  await supabase.from('odeme_bildirimleri').update({ durum: 'reddedildi' }).eq('id', id)
+
+  // E-posta gönder
+  if (bildirim?.profiller?.email) {
+    const aylar = ['','Ocak','Şubat','Mart','Nisan','Mayıs','Haziran',
+                   'Temmuz','Ağustos','Eylül','Ekim','Kasım','Aralık']
+    await fetch('/api/email', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        tip: 'odeme_reddedildi',
+        alici: bildirim.profiller.email,
+        aliciAd: bildirim.profiller.ad_soyad,
+        veri: {
+          tur_adi: bildirim.tahakkuklar?.aidat_turleri?.tur_adi,
+          donem: `${aylar[bildirim.tahakkuklar?.donem_ay]} ${bildirim.tahakkuklar?.donem_yil}`,
+          tutar: Number(bildirim.tutar).toLocaleString('tr-TR', { minimumFractionDigits: 2 }),
+          red_neden: ''
+        }
+      })
+    })
   }
 
-  const arizaDurumGuncelle = async (id: number, durum: string) => {
-    await supabase.from('ariza_talepler').update({ durum }).eq('id', id)
-    const { data } = await supabase
-      .from('ariza_talepler').select('*, profiller(ad_soyad)')
-      .eq('durum', 'acik').order('olusturma', { ascending: false })
-    setArizalar(data || [])
+  const { data } = await supabase
+    .from('odeme_bildirimleri')
+    .select('*, profiller(ad_soyad, email), tahakkuklar(donem_yil, donem_ay, aidat_turleri(tur_adi))')
+    .eq('durum', 'bekliyor').order('olusturma', { ascending: false })
+  setBildirimler(data || [])
+  setIstatistik((s: any) => ({ ...s, bekleyenBildirim: Math.max(0, (s.bekleyenBildirim || 1) - 1) }))
+}
+const arizaDurumGuncelle = async (id: number, durum: string) => {
+  const ariza = arizalar.find(a => a.id === id)
+  await supabase.from('ariza_talepler').update({ durum }).eq('id', id)
+
+  // E-posta gönder
+  if (ariza?.profiller?.email) {
+    await fetch('/api/email', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        tip: 'ariza_guncelleme',
+        alici: ariza.profiller.email,
+        aliciAd: ariza.profiller.ad_soyad,
+        veri: {
+          kategori: ariza.kategori,
+          baslik: ariza.baslik,
+          durum,
+          yonetici_notu: ariza.yonetici_notu || ''
+        }
+      })
+    })
   }
 
+  const { data } = await supabase
+    .from('ariza_talepler').select('*, profiller(ad_soyad, email)')
+    .eq('durum', 'acik').order('olusturma', { ascending: false })
+  setArizalar(data || [])
+}
   const turSecildi = (turId: string) => {
     const tur = aidatTurleri.find(t => t.id === parseInt(turId))
     setTahakkukForm(f => ({ ...f, tur_id: turId, tutar: tur ? String(tur.varsayilan_tutar) : '' }))
