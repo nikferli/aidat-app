@@ -201,7 +201,7 @@ const arizaDurumGuncelle = async (id: number, durum: string) => {
   const ariza = arizalar.find(a => a.id === id)
   await supabase.from('ariza_talepler').update({ durum }).eq('id', id)
 
-  // E-posta gönder
+  // E-posta gönder v1
   if (ariza?.profiller?.email) {
     await fetch('/api/email', {
       method: 'POST',

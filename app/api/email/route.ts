@@ -32,7 +32,7 @@ export async function POST(request: Request) {
     <body>
       <div class="wrap">
         <div class="header">
-          <h1>🏢 Aidat Yönetim Sistemi</h1>
+          <h1>🏢 Aidat Yönetim Sistemi V1</h1>
           <p>${baslik}</p>
         </div>
         <div class="body">
