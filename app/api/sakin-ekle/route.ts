@@ -37,8 +37,10 @@ export async function POST(request: Request) {
   }
 
 // Hoş geldin maili gönder — arka planda, await olmadan
-fetch(`${process.env.NEXT_PUBLIC_SITE_URL}/api/email`, {
-  method: 'POST',
+// YENİ — request'ten URL al
+const baseUrl = new URL(request.url).origin
+fetch(`${baseUrl}/api/email`, {
+	method: 'POST',
   headers: { 'Content-Type': 'application/json' },
   body: JSON.stringify({
     tip: 'yeni_sakin',
