@@ -9,7 +9,6 @@ export async function POST(request: Request) {
     process.env.SUPABASE_SERVICE_ROLE_KEY!
   )
 
-  // Auth kullanıcısı oluştur
   const { data: authData, error: authError } = await supabaseAdmin.auth.admin.createUser({
     email,
     password: sifre,
@@ -20,7 +19,6 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: authError.message }, { status: 400 })
   }
 
-  // Profil ekle
   const { error: profilError } = await supabaseAdmin
     .from('profiller')
     .insert({
@@ -34,26 +32,6 @@ export async function POST(request: Request) {
 
   if (profilError) {
     return NextResponse.json({ error: profilError.message }, { status: 400 })
-  }
-
-  // Hoş geldin maili gönder
-  try {
-    await fetch(`${process.env.NEXT_PUBLIC_SITE_URL}/api/email`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        tip: 'yeni_sakin',
-        alici: email,
-        aliciAd: ad_soyad,
-        veri: {
-          sifre,
-          site_url: process.env.NEXT_PUBLIC_SITE_URL
-        }
-      })
-    })
-  } catch (e) {
-    // Mail hatası sistemi durdurmasın
-    console.error('Hoş geldin maili gönderilemedi:', e)
   }
 
   return NextResponse.json({ success: true, userId: authData.user.id })
