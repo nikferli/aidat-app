@@ -37,7 +37,8 @@ export async function POST(request: Request) {
   }
 
 // Hoş geldin maili gönder — arka planda, await olmadan
-fetch(`${process.env.NEXT_PUBLIC_SITE_URL}/api/email`, {
+const baseUrl = new URL(request.url).origin
+fetch(`${baseUrl}/api/email`, {
   method: 'POST',
   headers: { 'Content-Type': 'application/json' },
   body: JSON.stringify({
@@ -46,7 +47,7 @@ fetch(`${process.env.NEXT_PUBLIC_SITE_URL}/api/email`, {
     aliciAd: ad_soyad,
     veri: {
       sifre,
-      site_url: process.env.NEXT_PUBLIC_SITE_URL
+      site_url: baseUrl
     }
   })
 }).catch(e => console.error('Hoş geldin maili gönderilemedi:', e))
