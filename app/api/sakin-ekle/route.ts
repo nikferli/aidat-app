@@ -36,25 +36,20 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: profilError.message }, { status: 400 })
   }
 
-  // Hoş geldin maili gönder2
-  try {
-    await fetch(`${process.env.NEXT_PUBLIC_SITE_URL}/api/email`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        tip: 'yeni_sakin',
-        alici: email,
-        aliciAd: ad_soyad,
-        veri: {
-          sifre,
-          site_url: process.env.NEXT_PUBLIC_SITE_URL
-        }
-      })
-    })
-  } catch (e) {
-    // Mail hatası sistemi durdurmasın
-    console.error('Hoş geldin maili gönderilemedi:', e)
-  }
+// Hoş geldin maili gönder — arka planda, await olmadan
+fetch(`${process.env.NEXT_PUBLIC_SITE_URL}/api/email`, {
+  method: 'POST',
+  headers: { 'Content-Type': 'application/json' },
+  body: JSON.stringify({
+    tip: 'yeni_sakin',
+    alici: email,
+    aliciAd: ad_soyad,
+    veri: {
+      sifre,
+      site_url: process.env.NEXT_PUBLIC_SITE_URL
+    }
+  })
+}).catch(e => console.error('Hoş geldin maili gönderilemedi:', e))
 
-  return NextResponse.json({ success: true, userId: authData.user.id })
-}
+// Hemen başarı döndür
+return NextResponse.json({ success: true, userId: authData.user.id })
