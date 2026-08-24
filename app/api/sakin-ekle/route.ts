@@ -2,7 +2,7 @@ export async function POST(request: Request) {
   try {
     const { email, sifre, ad_soyad, telefon } = await request.json()
     
-    console.log('Sakin ekle başladı:', email)
+    console.log('Sakin Ekle başladı:', email)
     console.log('URL:', process.env.NEXT_PUBLIC_SUPABASE_URL ? 'VAR' : 'YOK')
     console.log('KEY:', process.env.SUPABASE_SERVICE_ROLE_KEY ? 'VAR' : 'YOK')
 
