@@ -89,6 +89,8 @@ const { data: arizaData } = await supabase
   .select('*, profiller(ad_soyad, email)')
   .eq('durum', 'acik')
   .order('olusturma', { ascending: false })	  
+        setArizalar(arizaData || []) // eksik kod buymuş
+
 
       const { data: daireData } = await supabase
         .from('daireler').select('*, bloklar(blok_adi), profiller(ad_soyad)')

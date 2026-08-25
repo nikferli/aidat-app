@@ -16,10 +16,7 @@ export default function GirisPage() {
     setYukleniyor(true)
     setHata('')
 
-    const { data, error } = await supabase.auth.signInWithPassword({
-      email,
-      password: sifre,
-    })
+    const { data, error } = await supabase.auth.signInWithPassword({ email, password: sifre })
 
     if (error) {
       setHata('E-posta veya şifre hatalı.')
@@ -28,91 +25,86 @@ export default function GirisPage() {
     }
 
     const { data: profil } = await supabase
-      .from('profiller')
-      .select('rol')
-      .eq('id', data.user.id)
-      .single()
+      .from('profiller').select('rol').eq('id', data.user.id).single()
 
-    if (profil?.rol === 'yonetici') {
-      router.push('/dashboard')
-    } else {
-      router.push('/sakin')
-    }
+    router.push(profil?.rol === 'yonetici' ? '/dashboard' : '/sakin')
   }
 
   return (
-    <div style={{
-      minHeight: '100vh',
-      background: 'linear-gradient(135deg, #1a3c5e, #2e7d9f)',
-      display: 'flex', alignItems: 'center',
-      justifyContent: 'center', fontFamily: 'sans-serif'
-    }}>
-      <div style={{
-        background: '#fff', borderRadius: '20px',
-        padding: '2.5rem 2rem', width: '100%', maxWidth: '400px',
-        boxShadow: '0 20px 60px rgba(0,0,0,.25)'
-      }}>
-        <div style={{ textAlign: 'center', marginBottom: '2rem' }}>
-          <div style={{ fontSize: '2.5rem', marginBottom: '8px' }}>🏢</div>
-          <h1 style={{ color: '#1a3c5e', fontSize: '1.4rem', margin: 0 }}>
-            Aidat Yönetim Sistemi
-          </h1>
-          <p style={{ color: '#6b7280', fontSize: '.85rem', margin: '4px 0 0' }}>
-            Lütfen giriş yapın
-          </p>
+    <div className="min-h-screen flex items-center justify-center p-4"
+      style={{ background: 'linear-gradient(135deg, #1a3c5e 0%, #2e7d9f 60%, #4db8d4 100%)' }}>
+
+      {/* Kart */}
+      <div className="w-full max-w-md">
+
+        {/* Logo */}
+        <div className="text-center mb-8">
+          <div className="inline-flex items-center justify-center w-20 h-20 rounded-2xl mb-4 shadow-lg"
+            style={{ background: 'rgba(255,255,255,.15)', backdropFilter: 'blur(10px)', border: '1px solid rgba(255,255,255,.2)' }}>
+            <span className="text-4xl">🏢</span>
+          </div>
+          <h1 className="text-2xl font-bold text-white">Aidat Yönetim Sistemi</h1>
+          <p className="text-white/70 text-sm mt-1">Hesabınıza giriş yapın</p>
         </div>
 
-        <form onSubmit={girisYap}>
-          {hata && (
-            <div style={{
-              background: '#fee2e2', color: '#dc2626',
-              padding: '10px 14px', borderRadius: '8px',
-              marginBottom: '16px', fontSize: '.85rem'
-            }}>
-              {hata}
+        {/* Form Kartı */}
+        <div className="bg-white rounded-2xl shadow-2xl p-8">
+          <form onSubmit={girisYap} className="space-y-5">
+
+            {hata && (
+              <div className="bg-red-50 border border-red-200 text-red-700 rounded-xl px-4 py-3 text-sm flex items-center gap-2">
+                <span>⚠️</span> {hata}
+              </div>
+            )}
+
+            <div>
+              <label className="block text-sm font-bold text-gray-700 mb-2">
+                E-posta Adresi
+              </label>
+              <input type="email" value={email}
+                onChange={e => setEmail(e.target.value)}
+                required placeholder="ornek@site.com"
+                className="w-full px-4 py-3 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:border-transparent transition-all"
+                style={{ '--tw-ring-color': '#1a3c5e' } as any} />
             </div>
-          )}
 
-          <div style={{ marginBottom: '16px' }}>
-            <label style={{
-              display: 'block', fontWeight: '700',
-              fontSize: '.85rem', marginBottom: '6px', color: '#374151'
-            }}>E-posta</label>
-            <input type="email" value={email}
-              onChange={e => setEmail(e.target.value)}
-              required placeholder="ornek@site.com"
-              style={{
-                width: '100%', padding: '10px 14px',
-                border: '1px solid #d1d5db', borderRadius: '10px',
-                fontSize: '1rem', boxSizing: 'border-box'
-              }} />
+            <div>
+              <label className="block text-sm font-bold text-gray-700 mb-2">
+                Şifre
+              </label>
+              <input type="password" value={sifre}
+                onChange={e => setSifre(e.target.value)}
+                required placeholder="••••••••"
+                className="w-full px-4 py-3 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:border-transparent transition-all"
+                style={{ '--tw-ring-color': '#1a3c5e' } as any} />
+            </div>
+
+            <button type="submit" disabled={yukleniyor}
+              className="w-full py-3 rounded-xl text-white font-bold text-sm transition-all duration-200 flex items-center justify-center gap-2"
+              style={{ background: yukleniyor ? '#9ca3af' : 'linear-gradient(135deg, #1a3c5e, #2e7d9f)' }}>
+              {yukleniyor ? (
+                <>
+                  <svg className="animate-spin h-4 w-4" viewBox="0 0 24 24" fill="none">
+                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"/>
+                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8z"/>
+                  </svg>
+                  Giriş yapılıyor...
+                </>
+              ) : '🚀 Giriş Yap'}
+            </button>
+          </form>
+
+          <div className="mt-6 pt-6 border-t border-gray-100 text-center">
+            <p className="text-xs text-gray-400">
+              © {new Date().getFullYear()} Aidat Yönetim Sistemi
+            </p>
           </div>
+        </div>
 
-          <div style={{ marginBottom: '24px' }}>
-            <label style={{
-              display: 'block', fontWeight: '700',
-              fontSize: '.85rem', marginBottom: '6px', color: '#374151'
-            }}>Şifre</label>
-            <input type="password" value={sifre}
-              onChange={e => setSifre(e.target.value)}
-              required placeholder="••••••••"
-              style={{
-                width: '100%', padding: '10px 14px',
-                border: '1px solid #d1d5db', borderRadius: '10px',
-                fontSize: '1rem', boxSizing: 'border-box'
-              }} />
-          </div>
-
-          <button type="submit" disabled={yukleniyor}
-            style={{
-              width: '100%', padding: '12px',
-              background: yukleniyor ? '#9ca3af' : '#1a3c5e',
-              color: '#fff', border: 'none', borderRadius: '10px',
-              fontSize: '1rem', fontWeight: '700', cursor: 'pointer'
-            }}>
-            {yukleniyor ? 'Giriş yapılıyor...' : 'Giriş Yap'}
-          </button>
-        </form>
+        {/* Alt bilgi */}
+        <p className="text-center text-white/50 text-xs mt-6">
+          Güvenli bağlantı ile korunmaktadır 🔒
+        </p>
       </div>
     </div>
   )
