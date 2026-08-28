@@ -200,19 +200,21 @@ export default function Dashboard() {
     setTahakkukYukleniyor(false)
   }
 
-  const sakinEkle = async (e: React.FormEvent) => {
-    e.preventDefault(); setSakinEkleYukleniyor(true); setSakinEkleMesaj(null)
-    const res = await fetch('/api/sakin-ekle', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ email: sakinEkleForm.email, sifre: sakinEkleForm.sifre, ad_soyad: sakinEkleForm.ad_soyad, telefon: sakinEkleForm.telefon }) })
-    const sonuc = await res.json()
-    if (sonuc.error) { setSakinEkleMesaj({ tip: 'hata', metin: sonuc.error }); setSakinEkleYukleniyor(false); return }
-    if (sakinEkleForm.daire_id) await supabase.from('daireler').update({ kullanici_id: sonuc.userId, durum: 'dolu' }).eq('id', parseInt(sakinEkleForm.daire_id))
-    const { data } = await supabase.from('profiller').select('*').eq('rol', 'sakin').order('ad_soyad')
-    setSakinler(data || [])
-    setSakinEkleMesaj({ tip: 'basari', metin: `${sakinEkleForm.ad_soyad} başarıyla eklendi!` })
-    setSakinEkleForm({ email: '', sifre: '', ad_soyad: '', telefon: '', daire_id: '' })
-    setSakinEkleYukleniyor(false)
-  }
-
+const sakinEkle = async (e: React.FormEvent) => {
+  e.preventDefault(); setSakinEkleYukleniyor(true); setSakinEkleMesaj(null)
+  const res = await fetch('/api/sakin-ekle', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ email: sakinEkleForm.email, sifre: sakinEkleForm.sifre, ad_soyad: sakinEkleForm.ad_soyad, telefon: sakinEkleForm.telefon }) })
+  const sonuc = await res.json()
+  if (sonuc.error) { setSakinEkleMesaj({ tip: 'hata', metin: sonuc.error }); setSakinEkleYukleniyor(false); return }
+  if (sakinEkleForm.daire_id) await supabase.from('daireler').update({ kullanici_id: sonuc.userId, durum: 'dolu' }).eq('id', parseInt(sakinEkleForm.daire_id))
+  const { data } = await supabase.from('profiller').select('*').eq('rol', 'sakin').order('ad_soyad')
+  setSakinler(data || [])
+  // Daire listesini de yenile
+  const { data: daireData } = await supabase.from('daireler').select('*, bloklar(blok_adi), profiller(ad_soyad)').order('blok_id').order('daire_no')
+  setDaireler(daireData || [])
+  setSakinEkleMesaj({ tip: 'basari', metin: `${sakinEkleForm.ad_soyad} başarıyla eklendi!` })
+  setSakinEkleForm({ email: '', sifre: '', ad_soyad: '', telefon: '', daire_id: '' })
+  setSakinEkleYukleniyor(false)
+}
   const sakinDuzenleAc = (s: any) => { setDuzenlenecekSakin(s); setSakinDuzenleForm({ ad_soyad: s.ad_soyad, telefon: s.telefon || '', durum: s.durum }); setSakinDuzenleMesaj(null) }
 
   const sakinGuncelle = async (e: React.FormEvent) => {
