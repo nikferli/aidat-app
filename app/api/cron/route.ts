@@ -16,33 +16,26 @@ export async function GET(request: Request) {
   await supabase.rpc('gecikme_guncelle')
 
   // Gecikmiş tahakkuku olan sakinlere mail gönder
-  const { data: gecikmisSakinler } = await supabase
+  const { data: daireler } = await supabase
     .from('daireler')
-    .select(`
-      kullanici_id,
-      profiller(ad_soyad, email),
-      tahakkuklar(id, tutar, durum, donem_yil, donem_ay, aidat_turleri(tur_adi))
-    `)
+    .select('kullanici_id, profiller(ad_soyad, email), tahakkuklar(id, tutar, durum, donem_yil, donem_ay, aidat_turleri(tur_adi))')
     .eq('durum', 'dolu')
     .not('kullanici_id', 'is', null)
 
-  const aylar = ['','Ocak','Şubat','Mart','Nisan','Mayıs','Haziran',
-                 'Temmuz','Ağustos','Eylül','Ekim','Kasım','Aralık']
-
+  const aylar = ['','Ocak','Şubat','Mart','Nisan','Mayıs','Haziran','Temmuz','Ağustos','Eylül','Ekim','Kasım','Aralık']
+  const baseUrl = new URL(request.url).origin
   let mailSayisi = 0
 
-  for (const daire of gecikmisSakinler || []) {
+  for (const daire of daireler || []) {
     const profil = daire.profiller as any
     if (!profil?.email) continue
 
-    const gecikmisTahakkuklar = (daire.tahakkuklar as any[])
-      ?.filter(t => t.durum === 'gecikti') || []
-
+    const gecikmisTahakkuklar = (daire.tahakkuklar as any[])?.filter(t => t.durum === 'gecikti') || []
     if (gecikmisTahakkuklar.length === 0) continue
 
     const toplam = gecikmisTahakkuklar.reduce((acc: number, t: any) => acc + Number(t.tutar), 0)
 
-    await fetch(`${process.env.NEXT_PUBLIC_SITE_URL}/api/email`, {
+    await fetch(`${baseUrl}/api/email`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
@@ -50,7 +43,6 @@ export async function GET(request: Request) {
         alici: profil.email,
         aliciAd: profil.ad_soyad,
         veri: {
-          donem: `${new Date().getFullYear()}`,
           tahakkuklar: gecikmisTahakkuklar.map((t: any) => ({
             tur_adi: t.aidat_turleri?.tur_adi,
             donem: `${aylar[t.donem_ay]} ${t.donem_yil}`,
@@ -63,9 +55,5 @@ export async function GET(request: Request) {
     mailSayisi++
   }
 
-  return NextResponse.json({
-    success: true,
-    tarih: new Date().toISOString(),
-    gonderilen: mailSayisi
-  })
+  return NextResponse.json({ success: true, tarih: new Date().toISOString(), gonderilen: mailSayisi })
 }

@@ -10,45 +10,29 @@ export async function POST(request: Request) {
   let html  = ''
 
   const template = (baslik: string, icerik: string) => `
-    <!DOCTYPE html>
-    <html lang="tr">
-    <head><meta charset="UTF-8"><style>
-      body { font-family: 'Segoe UI', sans-serif; background: #f8fafc; margin: 0; padding: 0; }
-      .wrap { max-width: 560px; margin: 32px auto; background: #fff; border-radius: 16px; overflow: hidden; box-shadow: 0 4px 24px rgba(0,0,0,.08); }
-      .header { background: linear-gradient(135deg, #1a3c5e, #2e7d9f); color: #fff; padding: 28px 32px; }
-      .header h1 { margin: 0; font-size: 1.2rem; }
-      .header p { margin: 4px 0 0; opacity: .8; font-size: .85rem; }
-      .body { padding: 28px 32px; color: #374151; line-height: 1.7; }
-      .card { background: #f0f9ff; border: 1px solid #bfdbfe; border-radius: 10px; padding: 16px 20px; margin: 16px 0; }
-      .card-row { display: flex; justify-content: space-between; padding: 4px 0; font-size: .9rem; }
-      .card-row .label { color: #6b7280; }
-      .card-row .value { font-weight: 700; color: #1a3c5e; }
-      .btn { display: inline-block; background: #1a3c5e; color: #fff !important; padding: 12px 28px; border-radius: 10px; text-decoration: none; font-weight: 700; margin: 16px 0; }
-      .footer { background: #f8fafc; padding: 16px 32px; text-align: center; font-size: .78rem; color: #9ca3af; border-top: 1px solid #e5e7eb; }
-      .badge-success { background: #dcfce7; color: #166534; padding: 3px 10px; border-radius: 20px; font-size: .8rem; font-weight: 700; }
-      .badge-danger  { background: #fee2e2; color: #991b1b; padding: 3px 10px; border-radius: 20px; font-size: .8rem; font-weight: 700; }
-      .badge-warning { background: #fef3c7; color: #92400e; padding: 3px 10px; border-radius: 20px; font-size: .8rem; font-weight: 700; }
-    </style></head>
-    <body>
-      <div class="wrap">
-        <div class="header">
-          <h1>🏢 Aidat Yönetim Sistemi V1</h1>
-          <p>${baslik}</p>
-        </div>
-        <div class="body">
-          ${icerik}
-        </div>
-        <div class="footer">
-          Bu e-posta otomatik olarak gönderilmiştir. Lütfen yanıtlamayın.<br>
-          © ${new Date().getFullYear()} Aidat Yönetim Sistemi
-        </div>
-      </div>
-    </body>
-    </html>
+    <!DOCTYPE html><html lang="tr"><head><meta charset="UTF-8"><style>
+      body{font-family:'Segoe UI',sans-serif;background:#f8fafc;margin:0;padding:0}
+      .wrap{max-width:560px;margin:32px auto;background:#fff;border-radius:16px;overflow:hidden;box-shadow:0 4px 24px rgba(0,0,0,.08)}
+      .header{background:linear-gradient(135deg,#1a3c5e,#2e7d9f);color:#fff;padding:28px 32px}
+      .header h1{margin:0;font-size:1.2rem}.header p{margin:4px 0 0;opacity:.8;font-size:.85rem}
+      .body{padding:28px 32px;color:#374151;line-height:1.7}
+      .card{background:#f0f9ff;border:1px solid #bfdbfe;border-radius:10px;padding:16px 20px;margin:16px 0}
+      .card-row{display:flex;justify-content:space-between;padding:4px 0;font-size:.9rem}
+      .card-row .label{color:#6b7280}.card-row .value{font-weight:700;color:#1a3c5e}
+      .btn{display:inline-block;background:#1a3c5e;color:#fff!important;padding:12px 28px;border-radius:10px;text-decoration:none;font-weight:700;margin:16px 0}
+      .footer{background:#f8fafc;padding:16px 32px;text-align:center;font-size:.78rem;color:#9ca3af;border-top:1px solid #e5e7eb}
+      .badge-success{background:#dcfce7;color:#166534;padding:3px 10px;border-radius:20px;font-size:.8rem;font-weight:700}
+      .badge-danger{background:#fee2e2;color:#991b1b;padding:3px 10px;border-radius:20px;font-size:.8rem;font-weight:700}
+      .badge-warning{background:#fef3c7;color:#92400e;padding:3px 10px;border-radius:20px;font-size:.8rem;font-weight:700}
+    </style></head><body>
+    <div class="wrap">
+      <div class="header"><h1>🏢 Aidat Yönetim Sistemi</h1><p>${baslik}</p></div>
+      <div class="body">${icerik}</div>
+      <div class="footer">Bu e-posta otomatik olarak gönderilmiştir. Lütfen yanıtlamayın.<br>© ${new Date().getFullYear()} Aidat Yönetim Sistemi</div>
+    </div></body></html>
   `
 
   switch (tip) {
-
     case 'odeme_onaylandi':
       konu = `✅ Ödemeniz Onaylandı — ${veri.tur_adi} ${veri.donem}`
       html = template('Ödeme Onay Bildirimi', `
@@ -58,10 +42,10 @@ export async function POST(request: Request) {
           <div class="card-row"><span class="label">Aidat Türü</span><span class="value">${veri.tur_adi}</span></div>
           <div class="card-row"><span class="label">Dönem</span><span class="value">${veri.donem}</span></div>
           <div class="card-row"><span class="label">Tutar</span><span class="value">${veri.tutar} ₺</span></div>
-          <div class="card-row"><span class="label">Ödeme Tarihi</span><span class="value">${veri.tarih}</span></div>
+          <div class="card-row"><span class="label">Tarih</span><span class="value">${veri.tarih}</span></div>
           <div class="card-row"><span class="label">Durum</span><span class="badge-success">✓ Onaylandı</span></div>
         </div>
-        <p>Teşekkür ederiz. İyi günler dileriz.</p>
+        <p>Teşekkür ederiz.</p>
       `)
       break
 
@@ -77,7 +61,7 @@ export async function POST(request: Request) {
           <div class="card-row"><span class="label">Durum</span><span class="badge-danger">✗ Reddedildi</span></div>
         </div>
         ${veri.red_neden ? `<p><strong>Red Nedeni:</strong> ${veri.red_neden}</p>` : ''}
-        <p>Lütfen yöneticinizle iletişime geçin veya tekrar bildirim gönderin.</p>
+        <p>Lütfen yöneticinizle iletişime geçin.</p>
       `)
       break
 
@@ -96,10 +80,10 @@ export async function POST(request: Request) {
       break
 
     case 'gecikme_hatirlatma':
-      konu = `⚠️ Aidat Gecikme Hatırlatması — ${veri.donem}`
+      konu = `⚠️ Aidat Gecikme Hatırlatması`
       html = template('Gecikme Hatırlatması', `
         <p>Sayın <strong>${aliciAd}</strong>,</p>
-        <p>Aşağıdaki aidat ödemeleriniz gecikmiştir. Lütfen en kısa sürede ödemenizi gerçekleştirin.</p>
+        <p>Aşağıdaki aidat ödemeleriniz gecikmiştir.</p>
         <div class="card">
           ${veri.tahakkuklar.map((t: any) => `
             <div class="card-row">
@@ -112,7 +96,7 @@ export async function POST(request: Request) {
             <span class="value">${veri.toplam} ₺</span>
           </div>
         </div>
-        <p>Ödeme için yöneticinizle iletişime geçin veya sisteme giriş yaparak "Ödeme Bildir" bölümünü kullanın.</p>
+        <p>Lütfen en kısa sürede ödemenizi gerçekleştirin.</p>
       `)
       break
 
@@ -132,7 +116,7 @@ export async function POST(request: Request) {
       konu = `🏢 Aidat Sistemi — Hesabınız Oluşturuldu`
       html = template('Hoş Geldiniz!', `
         <p>Sayın <strong>${aliciAd}</strong>,</p>
-        <p>Site aidat yönetim sistemine kaydınız oluşturuldu. Aşağıdaki bilgilerle giriş yapabilirsiniz.</p>
+        <p>Site aidat yönetim sistemine kaydınız oluşturuldu.</p>
         <div class="card">
           <div class="card-row"><span class="label">E-posta</span><span class="value">${alici}</span></div>
           <div class="card-row"><span class="label">Şifre</span><span class="value">${veri.sifre}</span></div>
@@ -143,7 +127,7 @@ export async function POST(request: Request) {
       break
 
     default:
-      return NextResponse.json({ error: 'Geçersiz bildirim tipi' }, { status: 400 })
+      return NextResponse.json({ error: 'Geçersiz tip' }, { status: 400 })
   }
 
   try {
@@ -153,7 +137,6 @@ export async function POST(request: Request) {
       subject: konu,
       html,
     })
-
     if (error) return NextResponse.json({ error }, { status: 400 })
     return NextResponse.json({ success: true, id: data?.id })
   } catch (err: any) {
