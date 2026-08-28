@@ -369,7 +369,8 @@ export default function Dashboard() {
     { id: 'giderler',    ikon: '💸', etiket: 'Giderler' },
     { id: 'butce',       ikon: '📊', etiket: 'Bütçe Takibi' },
     { id: 'yilsonu',     ikon: '📈', etiket: 'Yıl Sonu Raporu' },
-    { id: 'aidat_artis', ikon: '📈', etiket: 'Aidat Artış' },
+    { id: 'aidat_artis',   ikon: '📈', etiket: 'Aidat Artış' },
+  { id: 'daire_yonetim', ikon: '🏢', etiket: 'Daire Yönetimi' },
   ]
 
   return (
@@ -1125,6 +1126,61 @@ function DashboardIcerik(p: any) {
               </div>
             ))}
           </div>
+        </div>
+      </div>
+    </div>
+  )
+
+  if (aktifSayfa === 'daire_yonetim') return (
+    <div>
+      <h2 style={{ color: '#1a3c5e', marginBottom: '20px' }}>🏢 Daire Yönetimi</h2>
+      <div style={{ background: '#fff', borderRadius: '12px', boxShadow: '0 2px 8px rgba(0,0,0,.06)', border: '1px solid #e5e7eb', overflow: 'hidden' }}>
+        <div style={{ background: '#1a3c5e', color: '#fff', padding: '12px 20px', fontWeight: '700', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+          <span>🏢 Tüm Daireler ({p.daireler.length})</span>
+          <div style={{ display: 'flex', gap: '12px', fontSize: '.82rem', opacity: .8 }}>
+            <span>🔴 Dolu: {p.daireler.filter((d: any) => d.durum === 'dolu').length}</span>
+            <span>🟢 Boş: {p.daireler.filter((d: any) => d.durum === 'bos').length}</span>
+          </div>
+        </div>
+        <div style={{ overflowX: 'auto' }}>
+          <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '.85rem' }}>
+            <thead>
+              <tr style={{ background: '#f8fafc' }}>
+                {['Blok','Daire No','Kat','Durum','Sakin','İşlemler'].map(h => (
+                  <th key={h} style={{ padding: '10px 16px', textAlign: 'left', color: '#6b7280', fontWeight: '700', fontSize: '.78rem', textTransform: 'uppercase', borderBottom: '2px solid #e5e7eb' }}>{h}</th>
+                ))}
+              </tr>
+            </thead>
+            <tbody>
+              {p.daireler.map((d: any, i: number) => (
+                <tr key={d.id} style={{ background: i % 2 === 0 ? '#fff' : '#f9fafb', borderBottom: '1px solid #f3f4f6' }}>
+                  <td style={{ padding: '10px 16px', fontWeight: '800', color: '#1a3c5e', fontSize: '1rem' }}>{d.bloklar?.blok_adi}</td>
+                  <td style={{ padding: '10px 16px', fontWeight: '600' }}>{d.daire_no}</td>
+                  <td style={{ padding: '10px 16px', color: '#6b7280' }}>{d.kat || '—'}</td>
+                  <td style={{ padding: '10px 16px' }}>
+                    <span style={{ background: d.durum === 'dolu' ? '#dcfce7' : '#f3f4f6', color: d.durum === 'dolu' ? '#166534' : '#6b7280', padding: '2px 10px', borderRadius: '20px', fontSize: '.75rem', fontWeight: '700' }}>
+                      {d.durum === 'dolu' ? '🔴 Dolu' : '🟢 Boş'}
+                    </span>
+                  </td>
+                  <td style={{ padding: '10px 16px', color: '#374151' }}>
+                    {d.profiller?.ad_soyad || <span style={{ color: '#9ca3af' }}>—</span>}
+                  </td>
+                  <td style={{ padding: '10px 16px' }}>
+                    {d.durum === 'dolu' && (
+                      <button onClick={async () => {
+                        if (!confirm(`${d.bloklar?.blok_adi} Blok Daire ${d.daire_no} boşaltılsın mı?`)) return
+                        await supabase.from('daireler').update({ kullanici_id: null, durum: 'bos' }).eq('id', d.id)
+                        const { data } = await supabase.from('daireler').select('*, bloklar(blok_adi), profiller(ad_soyad)').order('blok_id').order('daire_no')
+                        p.setDaireler(data || [])
+                      }} style={{ background: '#fee2e2', color: '#dc2626', border: 'none', borderRadius: '8px', padding: '5px 10px', cursor: 'pointer', fontSize: '.78rem', fontWeight: '700' }}>
+                        🚪 Boşalt
+                      </button>
+                    )}
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
         </div>
       </div>
     </div>
