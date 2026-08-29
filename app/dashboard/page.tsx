@@ -78,6 +78,12 @@ export default function Dashboard() {
   const [eslestirmeMesaj, setEslestirmeMesaj]   = useState<any>(null)
   const [eslestirmeYukleniyor, setEslestirmeYukleniyor] = useState(false)
 
+  const [daireDetay, setDaireDetay]             = useState<any>(null)
+  const [daireDetayVeri, setDaireDetayVeri]     = useState<any>(null)
+  const [daireDetayYukleniyor, setDaireDetayYukleniyor] = useState(false)
+  const [daireNot, setDaireNot]                 = useState('')
+  const [daireNotMesaj, setDaireNotMesaj]       = useState<any>(null)
+
   const router = useRouter()
   const kategoriler = ['Temizlik','Elektrik','Su','Doğalgaz','Asansör Bakım','Güvenlik','Bahçe','Tadilat','Sigorta','Yönetim','Diğer']
 
@@ -200,21 +206,19 @@ export default function Dashboard() {
     setTahakkukYukleniyor(false)
   }
 
-const sakinEkle = async (e: React.FormEvent) => {
-  e.preventDefault(); setSakinEkleYukleniyor(true); setSakinEkleMesaj(null)
-  const res = await fetch('/api/sakin-ekle', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ email: sakinEkleForm.email, sifre: sakinEkleForm.sifre, ad_soyad: sakinEkleForm.ad_soyad, telefon: sakinEkleForm.telefon }) })
-  const sonuc = await res.json()
-  if (sonuc.error) { setSakinEkleMesaj({ tip: 'hata', metin: sonuc.error }); setSakinEkleYukleniyor(false); return }
-  if (sakinEkleForm.daire_id) await supabase.from('daireler').update({ kullanici_id: sonuc.userId, durum: 'dolu' }).eq('id', parseInt(sakinEkleForm.daire_id))
-  const { data } = await supabase.from('profiller').select('*').eq('rol', 'sakin').order('ad_soyad')
-  setSakinler(data || [])
-  // Daire listesini de yenile
-  const { data: daireData } = await supabase.from('daireler').select('*, bloklar(blok_adi), profiller(ad_soyad)').order('blok_id').order('daire_no')
-  setDaireler(daireData || [])
-  setSakinEkleMesaj({ tip: 'basari', metin: `${sakinEkleForm.ad_soyad} başarıyla eklendi!` })
-  setSakinEkleForm({ email: '', sifre: '', ad_soyad: '', telefon: '', daire_id: '' })
-  setSakinEkleYukleniyor(false)
-}
+  const sakinEkle = async (e: React.FormEvent) => {
+    e.preventDefault(); setSakinEkleYukleniyor(true); setSakinEkleMesaj(null)
+    const res = await fetch('/api/sakin-ekle', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ email: sakinEkleForm.email, sifre: sakinEkleForm.sifre, ad_soyad: sakinEkleForm.ad_soyad, telefon: sakinEkleForm.telefon }) })
+    const sonuc = await res.json()
+    if (sonuc.error) { setSakinEkleMesaj({ tip: 'hata', metin: sonuc.error }); setSakinEkleYukleniyor(false); return }
+    if (sakinEkleForm.daire_id) await supabase.from('daireler').update({ kullanici_id: sonuc.userId, durum: 'dolu' }).eq('id', parseInt(sakinEkleForm.daire_id))
+    const { data } = await supabase.from('profiller').select('*').eq('rol', 'sakin').order('ad_soyad')
+    setSakinler(data || [])
+    setSakinEkleMesaj({ tip: 'basari', metin: `${sakinEkleForm.ad_soyad} başarıyla eklendi!` })
+    setSakinEkleForm({ email: '', sifre: '', ad_soyad: '', telefon: '', daire_id: '' })
+    setSakinEkleYukleniyor(false)
+  }
+
   const sakinDuzenleAc = (s: any) => { setDuzenlenecekSakin(s); setSakinDuzenleForm({ ad_soyad: s.ad_soyad, telefon: s.telefon || '', durum: s.durum }); setSakinDuzenleMesaj(null) }
 
   const sakinGuncelle = async (e: React.FormEvent) => {
@@ -344,6 +348,48 @@ const sakinEkle = async (e: React.FormEvent) => {
     setArtisOnizleme(ht.map(t => { const e = Number(t.varsayilan_tutar); const y = artisForm.yontem === 'yuzde' ? Math.round(e * (1 + deger / 100) * 100) / 100 : e + deger; return { ...t, eskiTutar: e, yeniTutar: y, fark: y - e } }))
   }
 
+  const daireDetayAc = async (daire: any) => {
+    setDaireDetay(daire)
+    setDaireDetayYukleniyor(true)
+    setDaireDetayVeri(null)
+    setDaireNot('')
+    setDaireNotMesaj(null)
+
+    // Tahakkuklar
+    const { data: thData } = await supabase
+      .from('tahakkuklar').select('*, aidat_turleri(tur_adi)')
+      .eq('daire_id', daire.id).order('donem_yil', { ascending: false }).order('donem_ay', { ascending: false })
+
+    // Ödemeler
+    const ids = thData?.map((t: any) => t.id) || []
+    let odemeData: any[] = []
+    if (ids.length > 0) {
+      const { data: od } = await supabase.from('odemeler').select('*, tahakkuklar(donem_yil, donem_ay, aidat_turleri(tur_adi))').in('tahakkuk_id', ids).order('odeme_tarihi', { ascending: false })
+      odemeData = od || []
+    }
+
+    // İstatistik
+    const toplamTahakkuk = thData?.reduce((a: number, t: any) => a + Number(t.tutar), 0) || 0
+    const toplamOdenen   = odemeData.reduce((a: number, o: any) => a + Number(o.tutar), 0)
+    const toplamKalan    = toplamTahakkuk - toplamOdenen
+    const tahsilatOrani  = toplamTahakkuk > 0 ? Math.round(toplamOdenen / toplamTahakkuk * 100) : 100
+    const acikBorclar    = thData?.filter((t: any) => t.durum !== 'odendi') || []
+
+    // Not
+    const { data: notData } = await supabase.from('daireler').select('sabit_not').eq('id', daire.id).single()
+    setDaireNot(notData?.sabit_not || '')
+
+    setDaireDetayVeri({ tahakkuklar: thData || [], odemeler: odemeData, toplamTahakkuk, toplamOdenen, toplamKalan, tahsilatOrani, acikBorclar })
+    setDaireDetayYukleniyor(false)
+  }
+
+  const daireNotKaydet = async () => {
+    const { error } = await supabase.from('daireler').update({ sabit_not: daireNot }).eq('id', daireDetay.id)
+    if (error) { setDaireNotMesaj({ tip: 'hata', metin: error.message }) }
+    else { setDaireNotMesaj({ tip: 'basari', metin: 'Not kaydedildi!' }) }
+    setTimeout(() => setDaireNotMesaj(null), 2000)
+  }
+
   const artisUygula = async (e: React.FormEvent) => {
     e.preventDefault()
     if (!confirm('Aidat artışı uygulanacak. Emin misiniz?')) return
@@ -421,6 +467,11 @@ const sakinEkle = async (e: React.FormEvent) => {
           eslestirmeForm={eslestirmeForm} setEslestirmeForm={setEslestirmeForm} eslestirmeMesaj={eslestirmeMesaj} eslestirmeYukleniyor={eslestirmeYukleniyor} daireEslestir={daireEslestir}
           kategoriler={kategoriler}
           setIstatistik={setIstatistik}
+          daireDetay={daireDetay} setDaireDetay={setDaireDetay}
+          daireDetayVeri={daireDetayVeri} daireDetayYukleniyor={daireDetayYukleniyor}
+          daireDetayAc={daireDetayAc}
+          daireNot={daireNot} setDaireNot={setDaireNot}
+          daireNotMesaj={daireNotMesaj} daireNotKaydet={daireNotKaydet}
         />
       </div>
     </div>
@@ -1168,16 +1219,22 @@ function DashboardIcerik(p: any) {
                     {d.profiller?.ad_soyad || <span style={{ color: '#9ca3af' }}>—</span>}
                   </td>
                   <td style={{ padding: '10px 16px' }}>
-                    {d.durum === 'dolu' && (
-                      <button onClick={async () => {
-                        if (!confirm(`${d.bloklar?.blok_adi} Blok Daire ${d.daire_no} boşaltılsın mı?`)) return
-                        await supabase.from('daireler').update({ kullanici_id: null, durum: 'bos' }).eq('id', d.id)
-                        const { data } = await supabase.from('daireler').select('*, bloklar(blok_adi), profiller(ad_soyad)').order('blok_id').order('daire_no')
-                        p.setDaireler(data || [])
-                      }} style={{ background: '#fee2e2', color: '#dc2626', border: 'none', borderRadius: '8px', padding: '5px 10px', cursor: 'pointer', fontSize: '.78rem', fontWeight: '700' }}>
-                        🚪 Boşalt
+                    <div style={{ display: 'flex', gap: '6px' }}>
+                      <button onClick={() => p.daireDetayAc(d)}
+                        style={{ background: '#eff6ff', color: '#1a3c5e', border: 'none', borderRadius: '8px', padding: '5px 10px', cursor: 'pointer', fontSize: '.78rem', fontWeight: '700' }}>
+                        🔍 Detay
                       </button>
-                    )}
+                      {d.durum === 'dolu' && (
+                        <button onClick={async () => {
+                          if (!confirm(`${d.bloklar?.blok_adi} Blok Daire ${d.daire_no} boşaltılsın mı?`)) return
+                          await supabase.from('daireler').update({ kullanici_id: null, durum: 'bos' }).eq('id', d.id)
+                          const { data } = await supabase.from('daireler').select('*, bloklar(blok_adi), profiller(ad_soyad)').order('blok_id').order('daire_no')
+                          p.setDaireler(data || [])
+                        }} style={{ background: '#fee2e2', color: '#dc2626', border: 'none', borderRadius: '8px', padding: '5px 10px', cursor: 'pointer', fontSize: '.78rem', fontWeight: '700' }}>
+                          🚪 Boşalt
+                        </button>
+                      )}
+                    </div>
                   </td>
                 </tr>
               ))}
@@ -1185,6 +1242,106 @@ function DashboardIcerik(p: any) {
           </table>
         </div>
       </div>
+
+      {/* Daire Detay Modal */}
+      {p.daireDetay && (
+        <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,.5)', zIndex: 200, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '20px' }}>
+          <div style={{ background: '#fff', borderRadius: '16px', width: '100%', maxWidth: '700px', maxHeight: '90vh', overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
+            {/* Modal Header */}
+            <div style={{ background: '#1a3c5e', color: '#fff', padding: '16px 20px', fontWeight: '700', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexShrink: 0 }}>
+              <span>🏢 {p.daireDetay.bloklar?.blok_adi} Blok — Daire {p.daireDetay.daire_no}</span>
+              <button onClick={() => p.setDaireDetay(null)} style={{ background: 'none', border: 'none', color: '#fff', cursor: 'pointer', fontSize: '1.4rem', lineHeight: 1 }}>✕</button>
+            </div>
+
+            <div style={{ overflowY: 'auto', padding: '20px' }}>
+              {p.daireDetayYukleniyor ? (
+                <div style={{ padding: '40px', textAlign: 'center', color: '#6b7280' }}>Yükleniyor...</div>
+              ) : p.daireDetayVeri && (
+                <>
+                  {/* Sakin Bilgisi */}
+                  <div style={{ background: p.daireDetay.durum === 'dolu' ? '#f0fdf4' : '#f8fafc', border: `1px solid ${p.daireDetay.durum === 'dolu' ? '#86efac' : '#e5e7eb'}`, borderRadius: '10px', padding: '12px 16px', marginBottom: '16px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                    <div>
+                      <div style={{ fontWeight: '700', color: '#374151' }}>{p.daireDetay.profiller?.ad_soyad || 'Boş Daire'}</div>
+                      <div style={{ color: '#6b7280', fontSize: '.82rem' }}>{p.daireDetay.durum === 'dolu' ? 'Aktif Sakin' : 'Sakin Yok'}</div>
+                    </div>
+                    <span style={{ background: p.daireDetay.durum === 'dolu' ? '#dcfce7' : '#f3f4f6', color: p.daireDetay.durum === 'dolu' ? '#166534' : '#6b7280', padding: '3px 12px', borderRadius: '20px', fontSize: '.78rem', fontWeight: '700' }}>
+                      {p.daireDetay.durum === 'dolu' ? '🔴 Dolu' : '🟢 Boş'}
+                    </span>
+                  </div>
+
+                  {/* İstatistik Kartları */}
+                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(130px, 1fr))', gap: '10px', marginBottom: '20px' }}>
+                    {[
+                      { label: 'Toplam Tahakkuk', deger: paraFormat(p.daireDetayVeri.toplamTahakkuk), renk: '#1a3c5e' },
+					  { label: 'Toplam Ödenen',   deger: paraFormat(p.daireDetayVeri.toplamOdenen), renk: '#16a34a' },
+                      { label: 'Kalan Borç',      deger: paraFormat(p.daireDetayVeri.toplamKalan), renk: p.daireDetayVeri.toplamKalan > 0 ? '#dc2626' : '#16a34a' },
+                      { label: 'Tahsilat Oranı',  deger: `%${p.daireDetayVeri.tahsilatOrani}`, renk: p.daireDetayVeri.tahsilatOrani >= 90 ? '#16a34a' : '#d97706' },
+                    ].map(k => (
+                      <div key={k.label} style={{ background: '#f8fafc', borderRadius: '10px', padding: '12px', border: '1px solid #e5e7eb', textAlign: 'center' }}>
+                        <div style={{ color: '#6b7280', fontSize: '.72rem', fontWeight: '700', textTransform: 'uppercase', marginBottom: '4px' }}>{k.label}</div>
+                        <div style={{ fontSize: '1rem', fontWeight: '800', color: k.renk }}>{k.deger}</div>
+                      </div>
+                    ))}
+                  </div>
+
+                  {/* Açık Borçlar */}
+                  {p.daireDetayVeri.acikBorclar.length > 0 && (
+                    <div style={{ marginBottom: '16px' }}>
+                      <div style={{ fontWeight: '700', color: '#dc2626', marginBottom: '8px', fontSize: '.9rem' }}>⚠️ Açık Borçlar ({p.daireDetayVeri.acikBorclar.length})</div>
+                      {p.daireDetayVeri.acikBorclar.map((t: any) => (
+                        <div key={t.id} style={{ background: '#fff5f5', border: '1px solid #fca5a5', borderRadius: '8px', padding: '10px 14px', marginBottom: '6px', display: 'flex', justifyContent: 'space-between', fontSize: '.85rem' }}>
+                          <span>{t.aidat_turleri?.tur_adi} — {ayAdi(t.donem_ay)} {t.donem_yil}</span>
+                          <span style={{ fontWeight: '700', color: '#dc2626' }}>{paraFormat(Number(t.tutar))}</span>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+
+                  {/* Ödeme Geçmişi */}
+                  <div style={{ marginBottom: '16px' }}>
+                    <div style={{ fontWeight: '700', color: '#374151', marginBottom: '8px', fontSize: '.9rem' }}>💰 Ödeme Geçmişi ({p.daireDetayVeri.odemeler.length})</div>
+                    {p.daireDetayVeri.odemeler.length === 0 ? (
+                      <div style={{ color: '#9ca3af', fontSize: '.85rem', padding: '12px', background: '#f9fafb', borderRadius: '8px', textAlign: 'center' }}>Henüz ödeme kaydı yok.</div>
+                    ) : (
+                      <div style={{ maxHeight: '200px', overflowY: 'auto', border: '1px solid #e5e7eb', borderRadius: '8px' }}>
+                        {p.daireDetayVeri.odemeler.map((o: any, i: number) => (
+                          <div key={o.id} style={{ padding: '8px 14px', borderBottom: i < p.daireDetayVeri.odemeler.length - 1 ? '1px solid #f3f4f6' : 'none', display: 'flex', justifyContent: 'space-between', fontSize: '.82rem' }}>
+                            <div>
+                              <span style={{ fontWeight: '600' }}>{o.tahakkuklar?.aidat_turleri?.tur_adi}</span>
+                              <span style={{ color: '#6b7280', marginLeft: '8px' }}>{ayAdi(o.tahakkuklar?.donem_ay)} {o.tahakkuklar?.donem_yil}</span>
+                            </div>
+                            <div style={{ textAlign: 'right' }}>
+                              <span style={{ fontWeight: '700', color: '#16a34a' }}>{paraFormat(Number(o.tutar))}</span>
+                              <span style={{ color: '#9ca3af', marginLeft: '8px', fontSize: '.75rem' }}>{new Date(o.odeme_tarihi).toLocaleDateString('tr-TR')}</span>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Daire Notu */}
+                  <div>
+                    <div style={{ fontWeight: '700', color: '#374151', marginBottom: '8px', fontSize: '.9rem' }}>📝 Daire Notu</div>
+                    {p.daireNotMesaj && (
+                      <div style={{ background: p.daireNotMesaj.tip === 'basari' ? '#dcfce7' : '#fee2e2', color: p.daireNotMesaj.tip === 'basari' ? '#166534' : '#991b1b', borderRadius: '8px', padding: '8px 12px', marginBottom: '8px', fontSize: '.82rem', fontWeight: '600' }}>
+                        {p.daireNotMesaj.metin}
+                      </div>
+                    )}
+                    <textarea rows={3} value={p.daireNot} onChange={(e: any) => p.setDaireNot(e.target.value)}
+                      placeholder="Bu daireye özel not ekleyin..."
+                      style={{ width: '100%', padding: '9px 12px', borderRadius: '8px', border: '1px solid #d1d5db', fontSize: '.85rem', boxSizing: 'border-box', resize: 'vertical' }} />
+                    <button onClick={p.daireNotKaydet}
+                      style={{ marginTop: '8px', padding: '8px 20px', background: '#1a3c5e', color: '#fff', border: 'none', borderRadius: '8px', cursor: 'pointer', fontWeight: '700', fontSize: '.85rem' }}>
+                      💾 Notu Kaydet
+                    </button>
+                  </div>
+                </>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   )
 
