@@ -214,7 +214,7 @@ const sakinEkle = async (e: React.FormEvent) => {
   if (sakinEkleForm.daire_id) await supabase.from('daireler').update({ kullanici_id: sonuc.userId, durum: 'dolu' }).eq('id', parseInt(sakinEkleForm.daire_id))
   const { data } = await supabase.from('profiller').select('*').eq('rol', 'sakin').order('ad_soyad')
   setSakinler(data || [])
-  // Daire listesini de yenile
+  // Daire listesini de yenileyiver
   const { data: daireData } = await supabase.from('daireler').select('*, bloklar(blok_adi), profiller(ad_soyad)').order('blok_id').order('daire_no')
   setDaireler(daireData || [])
   setSakinEkleMesaj({ tip: 'basari', metin: `${sakinEkleForm.ad_soyad} başarıyla eklendi!` })
