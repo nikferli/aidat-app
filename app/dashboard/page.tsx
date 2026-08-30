@@ -206,21 +206,22 @@ export default function Dashboard() {
     setTahakkukYukleniyor(false)
   }
 
-const sakinEkle = async (e: React.FormEvent) => {
-  e.preventDefault(); setSakinEkleYukleniyor(true); setSakinEkleMesaj(null)
-  const res = await fetch('/api/sakin-ekle', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ email: sakinEkleForm.email, sifre: sakinEkleForm.sifre, ad_soyad: sakinEkleForm.ad_soyad, telefon: sakinEkleForm.telefon }) })
-  const sonuc = await res.json()
-  if (sonuc.error) { setSakinEkleMesaj({ tip: 'hata', metin: sonuc.error }); setSakinEkleYukleniyor(false); return }
-  if (sakinEkleForm.daire_id) await supabase.from('daireler').update({ kullanici_id: sonuc.userId, durum: 'dolu' }).eq('id', parseInt(sakinEkleForm.daire_id))
-  const { data } = await supabase.from('profiller').select('*').eq('rol', 'sakin').order('ad_soyad')
-  setSakinler(data || [])
-  // Daire listesini de yenileyiver
-  const { data: daireData } = await supabase.from('daireler').select('*, bloklar(blok_adi), profiller(ad_soyad)').order('blok_id').order('daire_no')
-  setDaireler(daireData || [])
-  setSakinEkleMesaj({ tip: 'basari', metin: `${sakinEkleForm.ad_soyad} başarıyla eklendi!` })
-  setSakinEkleForm({ email: '', sifre: '', ad_soyad: '', telefon: '', daire_id: '' })
-  setSakinEkleYukleniyor(false)
-}
+  const sakinEkle = async (e: React.FormEvent) => {
+    e.preventDefault(); setSakinEkleYukleniyor(true); setSakinEkleMesaj(null)
+    const res = await fetch('/api/sakin-ekle', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ email: sakinEkleForm.email, sifre: sakinEkleForm.sifre, ad_soyad: sakinEkleForm.ad_soyad, telefon: sakinEkleForm.telefon }) })
+    const sonuc = await res.json()
+    if (sonuc.error) { setSakinEkleMesaj({ tip: 'hata', metin: sonuc.error }); setSakinEkleYukleniyor(false); return }
+    if (sakinEkleForm.daire_id) await supabase.from('daireler').update({ kullanici_id: sonuc.userId, durum: 'dolu' }).eq('id', parseInt(sakinEkleForm.daire_id))
+    const { data } = await supabase.from('profiller').select('*').eq('rol', 'sakin').order('ad_soyad')
+    setSakinler(data || [])
+    // Daire listesini de yenile
+    const { data: daireData } = await supabase.from('daireler').select('*, bloklar(blok_adi), profiller(ad_soyad)').order('blok_id').order('daire_no')
+    setDaireler(daireData || [])
+    setSakinEkleMesaj({ tip: 'basari', metin: `${sakinEkleForm.ad_soyad} başarıyla eklendi!` })
+    setSakinEkleForm({ email: '', sifre: '', ad_soyad: '', telefon: '', daire_id: '' })
+    setSakinEkleYukleniyor(false)
+  }
+
   const sakinDuzenleAc = (s: any) => { setDuzenlenecekSakin(s); setSakinDuzenleForm({ ad_soyad: s.ad_soyad, telefon: s.telefon || '', durum: s.durum }); setSakinDuzenleMesaj(null) }
 
   const sakinGuncelle = async (e: React.FormEvent) => {
@@ -421,6 +422,7 @@ const sakinEkle = async (e: React.FormEvent) => {
     { id: 'yilsonu',     ikon: '📈', etiket: 'Yıl Sonu Raporu' },
     { id: 'aidat_artis',   ikon: '📈', etiket: 'Aidat Artış' },
   { id: 'daire_yonetim', ikon: '🏢', etiket: 'Daire Yönetimi' },
+  { id: 'borc_raporu',   ikon: '📊', etiket: 'Borç Raporu' },
   ]
 
   return (
@@ -1275,7 +1277,7 @@ function DashboardIcerik(p: any) {
                   <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(130px, 1fr))', gap: '10px', marginBottom: '20px' }}>
                     {[
                       { label: 'Toplam Tahakkuk', deger: paraFormat(p.daireDetayVeri.toplamTahakkuk), renk: '#1a3c5e' },
-					  { label: 'Toplam Ödenen',   deger: paraFormat(p.daireDetayVeri.toplamOdenen), renk: '#16a34a' },
+                      { label: 'Toplam Ödenen',   deger: paraFormat(p.daireDetayVeri.toplamOdened), renk: '#16a34a' },
                       { label: 'Kalan Borç',      deger: paraFormat(p.daireDetayVeri.toplamKalan), renk: p.daireDetayVeri.toplamKalan > 0 ? '#dc2626' : '#16a34a' },
                       { label: 'Tahsilat Oranı',  deger: `%${p.daireDetayVeri.tahsilatOrani}`, renk: p.daireDetayVeri.tahsilatOrani >= 90 ? '#16a34a' : '#d97706' },
                     ].map(k => (
@@ -1347,5 +1349,164 @@ function DashboardIcerik(p: any) {
     </div>
   )
 
+  if (aktifSayfa === 'borc_raporu') return (
+    <BorcRaporu daireler={p.daireler} />
+  )
+
   return null
+}
+
+function BorcRaporu({ daireler }: { daireler: any[] }) {
+  const [rapor, setRapor]         = useState<any[]>([])
+  const [yukleniyor, setYukleniyor] = useState(true)
+  const [filtre, setFiltre]       = useState('tumu')
+
+  useEffect(() => {
+    const yukle = async () => {
+      setYukleniyor(true)
+      const dolular = daireler.filter(d => d.durum === 'dolu')
+      const sonuclar = []
+
+      for (const daire of dolular) {
+        const { data: thData } = await supabase
+          .from('tahakkuklar').select('id, tutar, durum, donem_yil, donem_ay, aidat_turleri(tur_adi)')
+          .eq('daire_id', daire.id).order('donem_yil', { ascending: false }).order('donem_ay', { ascending: false })
+
+        if (!thData || thData.length === 0) continue
+
+        const ids = thData.map((t: any) => t.id)
+        const { data: odemeData } = await supabase.from('odemeler').select('tutar, tahakkuk_id').in('tahakkuk_id', ids)
+
+        const odemeMap: any = {}
+        odemeData?.forEach((o: any) => { if (!odemeMap[o.tahakkuk_id]) odemeMap[o.tahakkuk_id] = 0; odemeMap[o.tahakkuk_id] += Number(o.tutar) })
+
+        const tahakkuklar = thData.map((t: any) => ({
+          ...t,
+          odenen: odemeMap[t.id] || 0,
+          kalan: Math.max(0, Number(t.tutar) - (odemeMap[t.id] || 0))
+        }))
+
+        const toplamTahakkuk = tahakkuklar.reduce((a: number, t: any) => a + Number(t.tutar), 0)
+        const toplamOdenen   = tahakkuklar.reduce((a: number, t: any) => a + t.odened, 0)
+        const toplamKalan    = tahakkuklar.reduce((a: number, t: any) => a + t.kalan, 0)
+        const gecikmisToplam = tahakkuklar.filter((t: any) => t.durum === 'gecikti').reduce((a: number, t: any) => a + t.kalan, 0)
+        const tahsilatOrani  = toplamTahakkuk > 0 ? Math.round(toplamOdenen / toplamTahakkuk * 100) : 100
+
+        sonuclar.push({
+          daire,
+          tahakkuklar,
+          toplamTahakkuk,
+          toplamOdened: tahakkuklar.reduce((a: number, t: any) => a + t.odened, 0),
+          toplamOdenen: tahakkuklar.reduce((a: number, t: any) => a + (odemeMap[t.id] || 0), 0),
+          toplamKalan,
+          gecikmisToplam,
+          tahsilatOrani,
+          acikSayisi: tahakkuklar.filter((t: any) => t.durum !== 'odendi').length
+        })
+      }
+
+      setRapor(sonuclar)
+      setYukleniyor(false)
+    }
+    yukle()
+  }, [daireler])
+
+  const filtreli = filtre === 'tumu' ? rapor
+    : filtre === 'borclu' ? rapor.filter(r => r.toplamKalan > 0)
+    : rapor.filter(r => r.gecikmisToplam > 0)
+
+  const genelToplam = filtreli.reduce((a, r) => a + r.toplamKalan, 0)
+  const genelGecikme = filtreli.reduce((a, r) => a + r.gecikmisToplam, 0)
+
+  if (yukleniyor) return <div style={{ padding: '40px', textAlign: 'center', color: '#6b7280' }}>Yükleniyor...</div>
+
+  return (
+    <div>
+      <h2 style={{ color: '#1a3c5e', marginBottom: '20px' }}>📊 Borç Raporu</h2>
+
+      {/* Özet */}
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(150px, 1fr))', gap: '12px', marginBottom: '20px' }}>
+        {[
+          { label: 'Toplam Sakin', deger: `${rapor.length} kişi`, renk: '#1a3c5e' },
+          { label: 'Borçlu Sakin', deger: `${rapor.filter(r => r.toplamKalan > 0).length} kişi`, renk: '#d97706' },
+          { label: 'Toplam Kalan Borç', deger: rapor.reduce((a, r) => a + r.toplamKalan, 0).toLocaleString('tr-TR', { minimumFractionDigits: 2 }) + ' ₺', renk: '#dc2626' },
+          { label: 'Gecikmiş Borç', deger: rapor.reduce((a, r) => a + r.gecikmisToplam, 0).toLocaleString('tr-TR', { minimumFractionDigits: 2 }) + ' ₺', renk: '#991b1b' },
+        ].map(k => (
+          <div key={k.label} style={{ background: '#fff', borderRadius: '12px', padding: '16px', boxShadow: '0 2px 8px rgba(0,0,0,.06)', border: '1px solid #e5e7eb', textAlign: 'center' }}>
+            <div style={{ color: '#6b7280', fontSize: '.72rem', fontWeight: '700', textTransform: 'uppercase', marginBottom: '4px' }}>{k.label}</div>
+            <div style={{ fontSize: '1rem', fontWeight: '800', color: k.renk }}>{k.deger}</div>
+          </div>
+        ))}
+      </div>
+
+      {/* Filtre */}
+      <div style={{ display: 'flex', gap: '8px', marginBottom: '16px' }}>
+        {[{ value: 'tumu', label: '👥 Tümü' }, { value: 'borclu', label: '⚠️ Borçlular' }, { value: 'gecikti', label: '🔴 Gecikmiş' }].map(f => (
+          <button key={f.value} onClick={() => setFiltre(f.value)}
+            style={{ padding: '7px 16px', borderRadius: '8px', cursor: 'pointer', fontWeight: '700', fontSize: '.85rem', border: filtre === f.value ? '2px solid #1a3c5e' : '1px solid #d1d5db', background: filtre === f.value ? '#eff6ff' : '#fff', color: filtre === f.value ? '#1a3c5e' : '#6b7280' }}>
+            {f.label}
+          </button>
+        ))}
+      </div>
+
+      {/* Tablo */}
+      <div style={{ background: '#fff', borderRadius: '12px', boxShadow: '0 2px 8px rgba(0,0,0,.06)', border: '1px solid #e5e7eb', overflow: 'hidden' }}>
+        <div style={{ background: '#1a3c5e', color: '#fff', padding: '12px 20px', fontWeight: '700' }}>
+          📊 Sakin Bazlı Borç Durumu ({filtreli.length} sakin)
+        </div>
+        {filtreli.length === 0 ? (
+          <div style={{ padding: '40px', textAlign: 'center', color: '#9ca3af' }}>Borçlu sakin bulunamadı.</div>
+        ) : (
+          <div style={{ overflowX: 'auto' }}>
+            <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '.85rem' }}>
+              <thead>
+                <tr style={{ background: '#f8fafc' }}>
+                  {['Sakin','Daire','Toplam Tahakkuk','Ödenen','Kalan Borç','Gecikmiş','Oran','Durum'].map(h => (
+                    <th key={h} style={{ padding: '10px 14px', textAlign: 'left', color: '#6b7280', fontWeight: '700', fontSize: '.75rem', textTransform: 'uppercase', borderBottom: '2px solid #e5e7eb', whiteSpace: 'nowrap' }}>{h}</th>
+                  ))}
+                </tr>
+              </thead>
+              <tbody>
+                {filtreli.map((r, i) => (
+                  <tr key={r.daire.id} style={{ background: i % 2 === 0 ? '#fff' : '#f9fafb', borderBottom: '1px solid #f3f4f6' }}>
+                    <td style={{ padding: '10px 14px', fontWeight: '700', color: '#374151' }}>{r.daire.profiller?.ad_soyad}</td>
+                    <td style={{ padding: '10px 14px', color: '#6b7280' }}>{r.daire.bloklar?.blok_adi} Blok - {r.daire.daire_no}</td>
+                    <td style={{ padding: '10px 14px', fontWeight: '600' }}>{r.toplamTahakkuk.toLocaleString('tr-TR', { minimumFractionDigits: 2 })} ₺</td>
+                    <td style={{ padding: '10px 14px', color: '#16a34a', fontWeight: '600' }}>{r.toplamOdenen.toLocaleString('tr-TR', { minimumFractionDigits: 2 })} ₺</td>
+                    <td style={{ padding: '10px 14px', fontWeight: '700', color: r.toplamKalan > 0 ? '#dc2626' : '#16a34a' }}>{r.toplamKalan.toLocaleString('tr-TR', { minimumFractionDigits: 2 })} ₺</td>
+                    <td style={{ padding: '10px 14px', fontWeight: '700', color: r.gecikmisToplam > 0 ? '#991b1b' : '#6b7280' }}>{r.gecikmisToplam > 0 ? r.gecikmisToplam.toLocaleString('tr-TR', { minimumFractionDigits: 2 }) + ' ₺' : '—'}</td>
+                    <td style={{ padding: '10px 14px' }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                        <div style={{ background: '#f3f4f6', borderRadius: '4px', height: '6px', width: '60px' }}>
+                          <div style={{ background: r.tahsilatOrani >= 90 ? '#16a34a' : r.tahsilatOrani >= 50 ? '#d97706' : '#dc2626', width: `${Math.min(r.tahsilatOrani, 100)}%`, height: '100%', borderRadius: '4px' }} />
+                        </div>
+                        <span style={{ fontSize: '.78rem', fontWeight: '700', color: '#374151' }}>%{r.tahsilatOrani}</span>
+                      </div>
+                    </td>
+                    <td style={{ padding: '10px 14px' }}>
+                      {r.gecikmisToplam > 0 ? (
+                        <span style={{ background: '#fee2e2', color: '#991b1b', padding: '2px 8px', borderRadius: '20px', fontSize: '.72rem', fontWeight: '700' }}>🔴 Gecikmiş</span>
+                      ) : r.toplamKalan > 0 ? (
+                        <span style={{ background: '#fef3c7', color: '#92400e', padding: '2px 8px', borderRadius: '20px', fontSize: '.72rem', fontWeight: '700' }}>⚠️ Borçlu</span>
+                      ) : (
+                        <span style={{ background: '#dcfce7', color: '#166534', padding: '2px 8px', borderRadius: '20px', fontSize: '.72rem', fontWeight: '700' }}>✅ Temiz</span>
+                      )}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+              <tfoot>
+                <tr style={{ background: '#f0f9ff', fontWeight: '800' }}>
+                  <td colSpan={4} style={{ padding: '10px 14px', color: '#1a3c5e' }}>GENEL TOPLAM</td>
+                  <td style={{ padding: '10px 14px', color: '#dc2626', fontWeight: '800' }}>{genelToplam.toLocaleString('tr-TR', { minimumFractionDigits: 2 })} ₺</td>
+                  <td style={{ padding: '10px 14px', color: '#991b1b', fontWeight: '800' }}>{genelGecikme.toLocaleString('tr-TR', { minimumFractionDigits: 2 })} ₺</td>
+                  <td colSpan={2}></td>
+                </tr>
+              </tfoot>
+            </table>
+          </div>
+        )}
+      </div>
+    </div>
+  )
 }

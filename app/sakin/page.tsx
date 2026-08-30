@@ -21,10 +21,64 @@ const gecikFaizi = (tutar: number, sonOdemeTarihi: string, yillikOran = 12) => {
   return Math.round(tutar * (yillikOran / 100) / 365 * gun * 100) / 100
 }
 
-function OdemeGecmisi({ daireId }: { daireId: number }) {
+function OdemeGecmisi({ daireId, kullanici }: { daireId: number, kullanici: any }) {
   const [odemeler, setOdemeler] = useState<any[]>([])
   const [yukleniyor, setYukleniyor] = useState(true)
   const [yil, setYil] = useState(new Date().getFullYear())
+  
+
+  
+const makbuzAc = (odeme: any) => {
+  const html = `<!DOCTYPE html>
+<html lang="tr"><head><meta charset="UTF-8">
+<title>Ödeme Makbuzu</title>
+<style>
+  body { font-family: 'Segoe UI', sans-serif; margin: 0; padding: 0; color: #1f2937; }
+  .wrap { max-width: 600px; margin: 40px auto; border: 1px solid #e5e7eb; border-radius: 12px; overflow: hidden; }
+  .header { background: linear-gradient(135deg, #1a3c5e, #2e7d9f); color: #fff; padding: 28px 32px; }
+  .header h2 { margin: 0 0 4px; font-size: 1.2rem; }
+  .header p { margin: 0; opacity: .8; font-size: .85rem; }
+  .badge { display: inline-block; background: #dcfce7; color: #166534; padding: 4px 14px; border-radius: 20px; font-weight: 700; font-size: .85rem; margin-top: 12px; }
+  .body { padding: 28px 32px; }
+  .row { display: flex; justify-content: space-between; padding: 10px 0; border-bottom: 1px solid #f3f4f6; font-size: .9rem; }
+  .row .label { color: #6b7280; }
+  .row .value { font-weight: 700; }
+  .total { display: flex; justify-content: space-between; padding: 14px 0; font-size: 1.1rem; font-weight: 800; color: #1a3c5e; border-top: 2px solid #1a3c5e; margin-top: 8px; }
+  .footer { background: #f8fafc; padding: 16px 32px; text-align: center; font-size: .78rem; color: #9ca3af; }
+  .makbuz-no { font-size: .78rem; opacity: .7; margin-top: 4px; }
+  @media print { @page { size: A5; margin: 10mm } .no-print { display: none } }
+</style></head>
+<body>
+  <div class="no-print" style="position:fixed;top:12px;right:16px;display:flex;gap:8px">
+    <button onclick="window.close()" style="padding:7px 16px;background:#e5e7eb;border:none;border-radius:7px;cursor:pointer;font-weight:700">← Geri</button>
+    <button onclick="window.print()" style="padding:7px 16px;background:#1a3c5e;color:#fff;border:none;border-radius:7px;cursor:pointer;font-weight:700">🖨️ Yazdır / PDF</button>
+  </div>
+  <div class="wrap">
+    <div class="header">
+      <h2>🏢 Aidat Yönetim Sistemi</h2>
+      <p>Resmi Ödeme Makbuzu</p>
+      <div class="badge">✓ Ödeme Onaylandı</div>
+      <div class="makbuz-no">Makbuz No: MKB-${odeme.id}-${new Date(odeme.odeme_tarihi).getFullYear()}</div>
+    </div>
+    <div class="body">
+      <div class="row"><span class="label">Sakin</span><span class="value">${kullanici?.ad_soyad || '—'}</span></div>
+      <div class="row"><span class="label">Aidat Türü</span><span class="value">${odeme.tahakkuk?.aidat_turleri?.tur_adi || '—'}</span></div>
+      <div class="row"><span class="label">Dönem</span><span class="value">${ayAdi(odeme.tahakkuk?.donem_ay)} ${odeme.tahakkuk?.donem_yil}</span></div>
+      <div class="row"><span class="label">Ödeme Tarihi</span><span class="value">${new Date(odeme.odeme_tarihi).toLocaleDateString('tr-TR', { day: 'numeric', month: 'long', year: 'numeric' })}</span></div>
+      <div class="row"><span class="label">Ödeme Yöntemi</span><span class="value">${{ nakit: 'Nakit', havale: 'Havale', eft: 'EFT', kredi_karti: 'Kredi Kartı', diger: 'Diğer' }[odeme.odeme_yontemi] || odeme.odeme_yontemi}</span></div>
+      ${odeme.aciklama ? `<div class="row"><span class="label">Açıklama</span><span class="value">${odeme.aciklama}</span></div>` : ''}
+      <div class="total"><span>Ödenen Tutar</span><span>${paraFormat(Number(odeme.tutar))}</span></div>
+    </div>
+    <div class="footer">
+      Bu makbuz elektronik olarak oluşturulmuştur.<br>
+      Makbuz No: MKB-${odeme.id}-${new Date(odeme.odeme_tarihi).getFullYear()} · ${new Date().toLocaleDateString('tr-TR')}
+    </div>
+  </div>
+</body></html>`
+
+  const w = window.open('', '_blank')
+  if (w) { w.document.write(html); w.document.close() }
+}  
 
   useEffect(() => {
     if (!daireId) return
@@ -71,11 +125,15 @@ function OdemeGecmisi({ daireId }: { daireId: number }) {
                 <div style={{ color: '#6b7280', fontSize: '.8rem' }}>{ayAdi(o.tahakkuk?.donem_ay)} {o.tahakkuk?.donem_yil}</div>
                 <div style={{ color: '#9ca3af', fontSize: '.75rem' }}>{new Date(o.odeme_tarihi).toLocaleDateString('tr-TR')} · {yontemler[o.odeme_yontemi] || o.odeme_yontemi}</div>
               </div>
-              <div style={{ textAlign: 'right' }}>
-                <div style={{ fontWeight: '800', fontSize: '1.1rem', color: '#16a34a' }}>{paraFormat(Number(o.tutar))}</div>
-                <span style={{ background: '#dcfce7', color: '#16a34a', padding: '1px 8px', borderRadius: '20px', fontSize: '.72rem', fontWeight: '700' }}>✓ Ödendi</span>
-              </div>
-            </div>
+<div style={{ textAlign: 'right' }}>
+  <div style={{ fontWeight: '800', fontSize: '1.1rem', color: '#16a34a' }}>{paraFormat(Number(o.tutar))}</div>
+  <span style={{ background: '#dcfce7', color: '#16a34a', padding: '1px 8px', borderRadius: '20px', fontSize: '.72rem', fontWeight: '700' }}>✓ Ödendi</span>
+  <br />
+  <button onClick={() => makbuzAc(o)} style={{ background: '#eff6ff', color: '#1a3c5e', border: 'none', borderRadius: '6px', padding: '3px 8px', cursor: 'pointer', fontSize: '.72rem', fontWeight: '700', marginTop: '4px' }}>
+    🖨️ Makbuz
+  </button>
+</div>            
+</div>
           ))}
           <div style={{ padding: '14px 20px', background: '#f0fdf4', display: 'flex', justifyContent: 'space-between', fontWeight: '800', color: '#16a34a' }}>
             <span>Toplam</span><span>{paraFormat(toplam)}</span>
@@ -325,6 +383,8 @@ function Profil({ kullanici, setKullanici }: { kullanici: any, setKullanici: any
   const [mesaj, setMesaj] = useState<any>(null)
   const [yukleniyor, setYukleniyor] = useState(false)
   const [istatistik, setIstatistik] = useState<any>(null)
+  const [avatarUrl, setAvatarUrl] = useState<string | null>(kullanici?.avatar_url || null)
+  const [avatarYukleniyor, setAvatarYukleniyor] = useState(false)
 
   useEffect(() => {
     const yukle = async () => {
@@ -347,6 +407,33 @@ function Profil({ kullanici, setKullanici }: { kullanici: any, setKullanici: any
     yukle()
   }, [])
 
+  const avatarYukle = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const dosya = e.target.files?.[0]
+    if (!dosya) return
+    if (dosya.size > 2 * 1024 * 1024) { setMesaj({ tip: 'hata', metin: 'Dosya 2MB\'dan küçük olmalı.' }); return }
+
+    setAvatarYukleniyor(true)
+    setMesaj(null)
+
+    const uzanti = dosya.name.split('.').pop()
+    const dosyaAdi = `${kullanici.id}/avatar.${uzanti}`
+
+    const { error: uploadError } = await supabase.storage
+      .from('avatars')
+      .upload(dosyaAdi, dosya, { upsert: true })
+
+    if (uploadError) { setMesaj({ tip: 'hata', metin: 'Yükleme hatası: ' + uploadError.message }); setAvatarYukleniyor(false); return }
+
+    const { data: urlData } = supabase.storage.from('avatars').getPublicUrl(dosyaAdi)
+    const yeniUrl = urlData.publicUrl + '?t=' + Date.now()
+
+    await supabase.from('profiller').update({ avatar_url: urlData.publicUrl }).eq('id', kullanici.id)
+    setAvatarUrl(yeniUrl)
+    setKullanici((k: any) => ({ ...k, avatar_url: urlData.publicUrl }))
+    setMesaj({ tip: 'basari', metin: 'Profil fotoğrafı güncellendi!' })
+    setAvatarYukleniyor(false)
+  }
+
   const kaydet = async (e: React.FormEvent) => {
     e.preventDefault()
     setYukleniyor(true); setMesaj(null)
@@ -364,19 +451,47 @@ function Profil({ kullanici, setKullanici }: { kullanici: any, setKullanici: any
     <div>
       <h2 style={{ color: '#1a3c5e', marginBottom: '20px' }}>👤 Profilim</h2>
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: '20px' }}>
+        {/* Sol: Profil Kartı */}
         <div style={{ background: '#fff', borderRadius: '12px', padding: '24px', boxShadow: '0 2px 8px rgba(0,0,0,.06)', border: '1px solid #e5e7eb', textAlign: 'center' }}>
-          <div style={{ width: '80px', height: '80px', borderRadius: '50%', background: '#1a3c5e', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 12px', fontSize: '2rem', color: '#fff', fontWeight: '800' }}>
-            {kullanici?.ad_soyad?.charAt(0)?.toUpperCase()}
+          {/* Avatar */}
+          <div style={{ position: 'relative', width: '90px', margin: '0 auto 12px' }}>
+            {avatarUrl ? (
+              <img src={avatarUrl} alt="Profil" style={{ width: '90px', height: '90px', borderRadius: '50%', objectFit: 'cover', border: '3px solid #1a3c5e' }} />
+            ) : (
+              <div style={{ width: '90px', height: '90px', borderRadius: '50%', background: '#1a3c5e', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '2.2rem', color: '#fff', fontWeight: '800' }}>
+                {kullanici?.ad_soyad?.charAt(0)?.toUpperCase()}
+              </div>
+            )}
+            {/* Fotoğraf yükle butonu */}
+            <label style={{ position: 'absolute', bottom: 0, right: 0, background: '#f0a500', borderRadius: '50%', width: '28px', height: '28px', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', border: '2px solid #fff' }}>
+              <span style={{ fontSize: '.8rem' }}>{avatarYukleniyor ? '⏳' : '📷'}</span>
+              <input type="file" accept="image/*" onChange={avatarYukle} style={{ display: 'none' }} disabled={avatarYukleniyor} />
+            </label>
           </div>
           <div style={{ fontWeight: '800', fontSize: '1.1rem', color: '#1a3c5e' }}>{kullanici?.ad_soyad}</div>
-          <div style={{ color: '#6b7280', fontSize: '.82rem', marginBottom: '16px' }}>{kullanici?.telefon || 'Telefon yok'}</div>
-          {istatistik && (
+          <div style={{ color: '#6b7280', fontSize: '.82rem', marginBottom: '4px' }}>{kullanici?.telefon || 'Telefon yok'}</div>
+<div style={{ display: 'flex', gap: '8px', justifyContent: 'center', marginBottom: '16px' }}>
+  <span style={{ color: '#9ca3af', fontSize: '.75rem' }}>Fotoğraf değiştirmek için 📷 tıklayın</span>
+  {avatarUrl && (
+    <button type="button" onClick={async () => {
+      await supabase.storage.from('avatars').remove([`${kullanici.id}/avatar.jpg`, `${kullanici.id}/avatar.png`, `${kullanici.id}/avatar.jpeg`, `${kullanici.id}/avatar.webp`])
+      await supabase.from('profiller').update({ avatar_url: null }).eq('id', kullanici.id)
+      setAvatarUrl(null)
+      setKullanici((k: any) => ({ ...k, avatar_url: null }))
+      setMesaj({ tip: 'basari', metin: 'Profil fotoğrafı kaldırıldı.' })
+    }} style={{ background: '#fee2e2', color: '#dc2626', border: 'none', borderRadius: '6px', padding: '2px 8px', cursor: 'pointer', fontSize: '.72rem', fontWeight: '700' }}>
+      🗑️ Kaldır
+    </button>
+  )}
+</div>          {istatistik && (
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px', borderTop: '1px solid #e5e7eb', paddingTop: '12px' }}>
               <div><div style={{ fontWeight: '800', fontSize: '1.2rem', color: '#16a34a' }}>{istatistik.odemeSayisi}</div><div style={{ color: '#6b7280', fontSize: '.75rem' }}>Ödeme</div></div>
               <div><div style={{ fontWeight: '800', fontSize: '1rem', color: istatistik.toplamBorc > 0 ? '#dc2626' : '#16a34a' }}>{Number(istatistik.toplamBorc).toLocaleString('tr-TR')} ₺</div><div style={{ color: '#6b7280', fontSize: '.75rem' }}>Borç</div></div>
             </div>
           )}
         </div>
+
+        {/* Sağ: Form */}
         <div>
           {mesaj && <div style={{ background: mesaj.tip === 'basari' ? '#dcfce7' : '#fee2e2', color: mesaj.tip === 'basari' ? '#166534' : '#991b1b', borderRadius: '8px', padding: '12px', marginBottom: '16px', fontSize: '.85rem', fontWeight: '600' }}>{mesaj.metin}</div>}
           <form onSubmit={kaydet}>
@@ -568,8 +683,6 @@ export default function SakinPanel() {
 
   return (
     <div style={{ minHeight: '100vh', background: '#f8fafc', fontFamily: 'sans-serif' }}>
-
-      {/* Topbar */}
       <div style={{ background: '#1a3c5e', color: '#fff', padding: '12px 20px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', position: 'sticky', top: 0, zIndex: 100 }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
           <button onClick={() => setMenuAcik(!menuAcik)} style={{ background: 'rgba(255,255,255,.15)', border: 'none', color: '#fff', borderRadius: '8px', padding: '6px 10px', cursor: 'pointer', fontSize: '1.2rem', lineHeight: 1 }}>☰</button>
@@ -579,15 +692,16 @@ export default function SakinPanel() {
           </div>
         </div>
         <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+          {kullanici?.avatar_url ? (
+            <img src={kullanici.avatar_url} alt="" style={{ width: '32px', height: '32px', borderRadius: '50%', objectFit: 'cover', border: '2px solid rgba(255,255,255,.3)' }} />
+          ) : null}
           <span style={{ fontSize: '.8rem', opacity: .8 }}>👤 {kullanici?.ad_soyad?.split(' ')[0]}</span>
           <button onClick={cikisYap} style={{ background: 'rgba(255,255,255,.15)', border: '1px solid rgba(255,255,255,.3)', color: '#fff', padding: '5px 10px', borderRadius: '8px', cursor: 'pointer', fontSize: '.78rem' }}>Çıkış</button>
         </div>
       </div>
 
-      {/* Overlay */}
       {menuAcik && <div onClick={() => setMenuAcik(false)} style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,.5)', zIndex: 98 }} />}
 
-      {/* Sidebar */}
       <div style={{ width: '220px', background: '#1a3c5e', padding: '16px 0', position: 'fixed', top: '49px', left: 0, bottom: 0, transform: menuAcik ? 'translateX(0)' : 'translateX(-100%)', transition: 'transform .25s ease', zIndex: 99, overflowY: 'auto' }}>
         {menuler.map(m => (
           <button key={m.id} onClick={() => { setAktifSayfa(m.id); setMenuAcik(false) }}
@@ -597,7 +711,6 @@ export default function SakinPanel() {
         ))}
       </div>
 
-      {/* İçerik */}
       <div style={{ padding: '24px', maxWidth: '1000px', margin: '0 auto' }}>
         {aktifSayfa === 'borclarim' && (
           <div>
@@ -649,7 +762,7 @@ export default function SakinPanel() {
             )}
           </div>
         )}
-        {aktifSayfa === 'odeme_gecmisi' && <OdemeGecmisi daireId={daire?.id} />}
+		{aktifSayfa === 'odeme_gecmisi' && <OdemeGecmisi daireId={daire?.id} kullanici={kullanici} />}
         {aktifSayfa === 'ekstre' && <Ekstre daireId={daire?.id} kullanici={kullanici} />}
         {aktifSayfa === 'odeme_bildir' && <OdemeBildir daireId={daire?.id} />}
         {aktifSayfa === 'ariza_bildir' && <ArizaBildir daireId={daire?.id} kullaniciId={kullanici?.id} />}
