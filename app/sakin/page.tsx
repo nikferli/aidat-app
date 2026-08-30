@@ -65,7 +65,7 @@ const makbuzAc = (odeme: any) => {
       <div class="row"><span class="label">Aidat Türü</span><span class="value">${odeme.tahakkuk?.aidat_turleri?.tur_adi || '—'}</span></div>
       <div class="row"><span class="label">Dönem</span><span class="value">${ayAdi(odeme.tahakkuk?.donem_ay)} ${odeme.tahakkuk?.donem_yil}</span></div>
       <div class="row"><span class="label">Ödeme Tarihi</span><span class="value">${new Date(odeme.odeme_tarihi).toLocaleDateString('tr-TR', { day: 'numeric', month: 'long', year: 'numeric' })}</span></div>
-      <div class="row"><span class="label">Ödeme Yöntemi</span><span class="value">${{ nakit: 'Nakit', havale: 'Havale', eft: 'EFT', kredi_karti: 'Kredi Kartı', diger: 'Diğer' }[odeme.odeme_yontemi] || odeme.odeme_yontemi}</span></div>
+      <div class="row"><span class="label">Ödeme Yöntemi</span><span class="value">${({ nakit: 'Nakit', havale: 'Havale', eft: 'EFT', kredi_karti: 'Kredi Kartı', diger: 'Diğer' } as any)[odeme.odeme_yontemi] || odeme.odeme_yontemi}</span></div>
       ${odeme.aciklama ? `<div class="row"><span class="label">Açıklama</span><span class="value">${odeme.aciklama}</span></div>` : ''}
       <div class="total"><span>Ödenen Tutar</span><span>${paraFormat(Number(odeme.tutar))}</span></div>
     </div>
@@ -214,7 +214,7 @@ function ArizaBildir({ daireId, kullaniciId }: { daireId: number, kullaniciId: s
                 </div>
               </div>
               <button type="submit" disabled={gonderiliyor} style={{ width: '100%', padding: '11px', background: gonderiliyor ? '#9ca3af' : '#d97706', color: '#fff', border: 'none', borderRadius: '10px', fontSize: '.9rem', fontWeight: '700', cursor: 'pointer' }}>
-                {gonderiliyor ? 'Gönderiliyor....' : '🔧 Bildirimi Gönder'}
+                {gonderiliyor ? 'Gönderiliyor...' : '🔧 Bildirimi Gönder'}
               </button>
             </form>
           </div>
