@@ -214,7 +214,7 @@ function ArizaBildir({ daireId, kullaniciId }: { daireId: number, kullaniciId: s
                 </div>
               </div>
               <button type="submit" disabled={gonderiliyor} style={{ width: '100%', padding: '11px', background: gonderiliyor ? '#9ca3af' : '#d97706', color: '#fff', border: 'none', borderRadius: '10px', fontSize: '.9rem', fontWeight: '700', cursor: 'pointer' }}>
-                {gonderiliyor ? 'Gönderiliyor...' : '🔧 Bildirimi Gönder'}
+                {gonderiliyor ? 'Gönderiliyor....' : '🔧 Bildirimi Gönder'}
               </button>
             </form>
           </div>
