@@ -13,12 +13,12 @@ const ayAdi = (ay: number) => {
   return aylar[ay]
 }
 
-const gecikFaizi = (tutar: number, sonOdemeTarihi: string, yillikOran = 12) => {
+const gecikFaizi = (tutar: number, sonOdemeTarihi: string, aylikOran = 3) => {
   const bugun = new Date()
   const sonOdeme = new Date(sonOdemeTarihi)
   if (bugun <= sonOdeme) return 0
   const gun = Math.floor((bugun.getTime() - sonOdeme.getTime()) / (1000 * 60 * 60 * 24))
-  return Math.round(tutar * (yillikOran / 100) / 365 * gun * 100) / 100
+  return Math.round(tutar * (aylikOran / 100) / 30 * gun * 100) / 100
 }
 
 function OdemeGecmisi({ daireId, kullanici }: { daireId: number, kullanici: any }) {
@@ -295,6 +295,25 @@ function OdemeBildir({ daireId }: { daireId: number }) {
         <div style={{ background: '#fff', borderRadius: '12px', boxShadow: '0 2px 8px rgba(0,0,0,.06)', border: '1px solid #e5e7eb', overflow: 'hidden' }}>
           <div style={{ background: '#1a3c5e', color: '#fff', padding: '12px 20px', fontWeight: '700' }}>✉️ Ödeme Yaptım</div>
           <div style={{ padding: '20px' }}>
+            {/* IBAN Bilgisi */}
+            <div style={{ background: '#eff6ff', border: '1px solid #bfdbfe', borderRadius: '10px', padding: '14px 16px', marginBottom: '16px' }}>
+              <div style={{ fontWeight: '700', color: '#1e40af', marginBottom: '8px', fontSize: '.9rem' }}>🏦 Ödeme Hesap Bilgileri</div>
+              <div style={{ fontSize: '.85rem', color: '#1e3a8a' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '4px' }}>
+                  <span style={{ color: '#6b7280' }}>Banka</span>
+                  <span style={{ fontWeight: '700' }}>Garanti Bankası</span>
+                </div>
+                <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '4px' }}>
+                  <span style={{ color: '#6b7280' }}>Hesap Sahibi</span>
+                  <span style={{ fontWeight: '700' }}>Site Yönetimi</span>
+                </div>
+                <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                  <span style={{ color: '#6b7280' }}>IBAN</span>
+                  <span style={{ fontWeight: '800', letterSpacing: '1px', fontFamily: 'monospace' }}>TR00 0006 2000 0000 0000 0000 00</span>
+                </div>
+              </div>
+              <div style={{ marginTop: '8px', fontSize: '.78rem', color: '#6b7280' }}>⚠️ Açıklama kısmına adınızı ve daire numaranızı yazmayı unutmayın.</div>
+            </div>
             {mesaj && <div style={{ background: mesaj.tip === 'basari' ? '#dcfce7' : '#fee2e2', color: mesaj.tip === 'basari' ? '#166534' : '#991b1b', borderRadius: '8px', padding: '12px', marginBottom: '16px', fontSize: '.85rem', fontWeight: '600' }}>{mesaj.metin}</div>}
             {tahakkuklar.length === 0 ? <div style={{ textAlign: 'center', color: '#16a34a', padding: '24px', fontWeight: '700' }}>✅ Açık borç yok!</div> : (
               <form onSubmit={gonder}>

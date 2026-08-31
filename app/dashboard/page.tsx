@@ -32,6 +32,10 @@ export default function Dashboard() {
 
   const [tahakkukMesaj, setTahakkukMesaj]       = useState<any>(null)
   const [tahakkukListesi, setTahakkukListesi]   = useState<any[]>([])
+  const [faizListesi, setFaizListesi]           = useState<any[]>([])
+  const [faizYukleniyor, setFaizYukleniyor]     = useState(false)
+  const [faizMesaj, setFaizMesaj]               = useState<any>(null)
+  const [faizOran, setFaizOran]                 = useState(3)
   const [tahakkukFiltre, setTahakkukFiltre]     = useState({ daire_id: '', yil: new Date().getFullYear() })
   const [tahakkukYukleniyor, setTahakkukYukleniyor] = useState(false)
   const [tahakkukForm, setTahakkukForm]         = useState({
@@ -198,6 +202,72 @@ export default function Dashboard() {
   const turSecildi = (turId: string) => {
     const tur = aidatTurleri.find(t => t.id === parseInt(turId))
     setTahakkukForm(f => ({ ...f, tur_id: turId, tutar: tur ? String(tur.varsayilan_tutar) : '' }))
+  }
+
+  const faizHesapla = async () => {
+    setFaizYukleniyor(true); setFaizMesaj(null); setFaizListesi([])
+    const bugun = new Date()
+
+    // Gecikmiş tahakkukları getir (Gecikme Faizi türü hariç)
+    const { data: gecikmisTh } = await supabase
+      .from('tahakkuklar')
+      .select('*, daireler(id, daire_no, bloklar(blok_adi), profiller(ad_soyad)), aidat_turleri(tur_adi)')
+      .eq('durum', 'gecikti')
+      .not('aidat_turleri.tur_adi', 'eq', 'Gecikme Faizi')
+
+    if (!gecikmisTh || gecikmisTh.length === 0) {
+      setFaizMesaj({ tip: 'basari', metin: 'Gecikmiş tahakkuk bulunamadı.' })
+      setFaizYukleniyor(false); return
+    }
+
+    // Her tahakkuk için ödeme toplamını al
+    const ids = gecikmisTh.map((t: any) => t.id)
+    const { data: odemeData } = await supabase.from('odemeler').select('tahakkuk_id, tutar').in('tahakkuk_id', ids)
+    const odemeMap: any = {}
+    odemeData?.forEach((o: any) => { if (!odemeMap[o.tahakkuk_id]) odemeMap[o.tahakkuk_id] = 0; odemeMap[o.tahakkuk_id] += Number(o.tutar) })
+
+    const liste = gecikmisTh.map((t: any) => {
+      const kalan = Math.max(0, Number(t.tutar) - (odemeMap[t.id] || 0))
+      if (kalan <= 0 || !t.son_odeme_tarihi) return null
+      const sonOdeme = new Date(t.son_odeme_tarihi)
+      if (bugun <= sonOdeme) return null
+      const gun = Math.floor((bugun.getTime() - sonOdeme.getTime()) / (1000 * 60 * 60 * 24))
+      const faiz = Math.round(kalan * (faizOran / 100) / 30 * gun * 100) / 100
+      if (faiz <= 0) return null
+      return { tahakkuk: t, kalan, gun, faiz, daire: t.daireler, sakin: (t.daireler as any)?.profiller?.ad_soyad }
+    }).filter(Boolean)
+
+    setFaizListesi(liste)
+    setFaizYukleniyor(false)
+    if (liste.length === 0) setFaizMesaj({ tip: 'basari', metin: 'Faiz hesaplanacak tahakkuk bulunamadı.' })
+  }
+
+  const faizTahakkukOlustur = async (item: any) => {
+    if (!confirm(`${item.sakin} için ${paraFormat(item.faiz)} faiz tahakkuku oluşturulsun mu?`)) return
+
+    // Gecikme Faizi türünün ID'sini bul
+    const { data: turData } = await supabase.from('aidat_turleri').select('id').eq('tur_adi', 'Gecikme Faizi').single()
+    if (!turData) { alert('Gecikme Faizi türü bulunamadı!'); return }
+
+    const bugun = new Date()
+    const { error } = await supabase.from('tahakkuklar').insert({
+      daire_id: item.daire.id,
+      tur_id: turData.id,
+      donem_yil: item.tahakkuk.donem_yil,
+      donem_ay: item.tahakkuk.donem_ay,
+      tutar: item.faiz,
+      son_odeme_tarihi: new Date(bugun.getTime() + 7 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
+      durum: 'bekliyor'
+    })
+
+    if (error) { alert('Hata: ' + error.message); return }
+    setFaizListesi(prev => prev.filter((f: any) => f.tahakkuk.id !== item.tahakkuk.id))
+    setFaizMesaj({ tip: 'basari', metin: `${item.sakin} için faiz tahakkuku oluşturuldu!` })
+  }
+
+  const tumFaizTahakkukOlustur = async () => {
+    if (!confirm(`${faizListesi.length} sakin için toplam ${paraFormat(faizListesi.reduce((a: number, f: any) => a + f.faiz, 0))} faiz tahakkuku oluşturulsun mu?`)) return
+    for (const item of faizListesi) await faizTahakkukOlustur(item)
   }
 
   const tahakkukListeYukle = async (daireId?: string, yil?: number) => {
@@ -457,6 +527,7 @@ export default function Dashboard() {
     { id: 'aidat_artis',   ikon: '📈', etiket: 'Aidat Artış' },
   { id: 'daire_yonetim', ikon: '🏢', etiket: 'Daire Yönetimi' },
   { id: 'borc_raporu',   ikon: '📊', etiket: 'Borç Raporu' },
+  { id: 'banka_import',  ikon: '🏦', etiket: 'Banka Excel Import' },
   ]
 
   return (
@@ -493,6 +564,7 @@ export default function Dashboard() {
           giderler={giderler} setGiderler={setGiderler} butce={butce} odemeler={odemeler}
           tahakkukForm={tahakkukForm} setTahakkukForm={setTahakkukForm} tahakkukMesaj={tahakkukMesaj} tahakkukYukleniyor={tahakkukYukleniyor} tahakkukKaydet={tahakkukKaydet} turSecildi={turSecildi}
           tahakkukListesi={tahakkukListesi} tahakkukFiltre={tahakkukFiltre} setTahakkukFiltre={setTahakkukFiltre} tahakkukListeYukle={tahakkukListeYukle} tahakkukSil={tahakkukSil}
+          faizListesi={faizListesi} faizYukleniyor={faizYukleniyor} faizMesaj={faizMesaj} faizOran={faizOran} setFaizOran={setFaizOran} faizHesapla={faizHesapla} faizTahakkukOlustur={faizTahakkukOlustur} tumFaizTahakkukOlustur={tumFaizTahakkukOlustur}
           sakinEkleForm={sakinEkleForm} setSakinEkleForm={setSakinEkleForm} sakinEkleMesaj={sakinEkleMesaj} sakinEkleYukleniyor={sakinEkleYukleniyor} sakinEkle={sakinEkle}
           duzenlenecekSakin={duzenlenecekSakin} setDuzenlenecekSakin={setDuzenlenecekSakin} sakinDuzenleForm={sakinDuzenleForm} setSakinDuzenleForm={setSakinDuzenleForm} sakinDuzenleMesaj={sakinDuzenleMesaj} sakinDuzenleAc={sakinDuzenleAc} sakinGuncelle={sakinGuncelle}
           sifreSakin={sifreSakin} setSifreSakin={setSifreSakin} yeniSifre={yeniSifre} setYeniSifre={setYeniSifre} sifreMesaj={sifreMesaj} sifreYukleniyor={sifreYukleniyor} sakinSifreSifirla={sakinSifreSifirla}
@@ -789,6 +861,68 @@ function DashboardIcerik(p: any) {
             </div>
           ))}
         </div>
+      </div>
+
+      {/* Faiz Tahakkuku Oluştur */}
+      <div style={{ marginTop: '24px', background: '#fff', borderRadius: '12px', boxShadow: '0 2px 8px rgba(0,0,0,.06)', border: '1px solid #e5e7eb', overflow: 'hidden' }}>
+        <div style={{ background: '#d97706', color: '#fff', padding: '12px 20px', fontWeight: '700' }}>⚠️ Gecikme Faizi Tahakkuku</div>
+        <div style={{ padding: '16px 20px', borderBottom: '1px solid #f3f4f6', display: 'flex', gap: '12px', alignItems: 'flex-end', flexWrap: 'wrap' }}>
+          <div>
+            <label style={{ display: 'block', fontWeight: '700', fontSize: '.78rem', color: '#6b7280', marginBottom: '4px' }}>Yıllık Faiz Oranı (%)</label>
+            <input type="number" min="0" max="100" step="0.1" value={p.faizOran} onChange={(e: any) => p.setFaizOran(parseFloat(e.target.value))} style={{ padding: '7px 12px', borderRadius: '8px', border: '1px solid #d1d5db', fontSize: '.85rem', width: '100px' }} />
+          </div>
+          <button onClick={p.faizHesapla} disabled={p.faizYukleniyor} style={{ padding: '7px 16px', background: '#d97706', color: '#fff', border: 'none', borderRadius: '8px', cursor: 'pointer', fontWeight: '700', fontSize: '.85rem' }}>
+            {p.faizYukleniyor ? 'Hesaplanıyor...' : '🔍 Faizleri Hesapla'}
+          </button>
+          {p.faizListesi.length > 0 && (
+            <button onClick={p.tumFaizTahakkukOlustur} style={{ padding: '7px 16px', background: '#dc2626', color: '#fff', border: 'none', borderRadius: '8px', cursor: 'pointer', fontWeight: '700', fontSize: '.85rem' }}>
+              ⚡ Tümüne Tahakkuk Oluştur ({p.faizListesi.length})
+            </button>
+          )}
+        </div>
+        {p.faizMesaj && (
+          <div style={{ padding: '12px 20px', background: p.faizMesaj.tip === 'basari' ? '#dcfce7' : '#fee2e2', color: p.faizMesaj.tip === 'basari' ? '#166534' : '#991b1b', fontWeight: '600', fontSize: '.85rem' }}>
+            {p.faizMesaj.metin}
+          </div>
+        )}
+        {p.faizListesi.length > 0 && (
+          <div style={{ overflowX: 'auto' }}>
+            <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '.85rem' }}>
+              <thead>
+                <tr style={{ background: '#f8fafc' }}>
+                  {['Sakin','Daire','Aidat Türü','Dönem','Ana Borç','Gecikme (Gün)','Faiz Tutarı','İşlem'].map(h => (
+                    <th key={h} style={{ padding: '10px 14px', textAlign: 'left', color: '#6b7280', fontWeight: '700', fontSize: '.75rem', textTransform: 'uppercase', borderBottom: '2px solid #e5e7eb', whiteSpace: 'nowrap' }}>{h}</th>
+                  ))}
+                </tr>
+              </thead>
+              <tbody>
+                {p.faizListesi.map((item: any, i: number) => (
+                  <tr key={item.tahakkuk.id} style={{ background: i % 2 === 0 ? '#fff' : '#f9fafb', borderBottom: '1px solid #f3f4f6' }}>
+                    <td style={{ padding: '9px 14px', fontWeight: '700' }}>{item.sakin || '—'}</td>
+                    <td style={{ padding: '9px 14px', color: '#6b7280' }}>{item.daire?.bloklar?.blok_adi} Blok - {item.daire?.daire_no}</td>
+                    <td style={{ padding: '9px 14px' }}>{item.tahakkuk.aidat_turleri?.tur_adi}</td>
+                    <td style={{ padding: '9px 14px' }}>{ayAdi(item.tahakkuk.donem_ay)} {item.tahakkuk.donem_yil}</td>
+                    <td style={{ padding: '9px 14px', color: '#dc2626', fontWeight: '600' }}>{paraFormat(item.kalan)}</td>
+                    <td style={{ padding: '9px 14px', color: '#d97706', fontWeight: '600' }}>{item.gun} gün</td>
+                    <td style={{ padding: '9px 14px', color: '#dc2626', fontWeight: '800' }}>{paraFormat(item.faiz)}</td>
+                    <td style={{ padding: '9px 14px' }}>
+                      <button onClick={() => p.faizTahakkukOlustur(item)} style={{ background: '#fef3c7', color: '#d97706', border: '1px solid #fcd34d', borderRadius: '6px', padding: '4px 10px', cursor: 'pointer', fontSize: '.75rem', fontWeight: '700' }}>
+                        ➕ Tahakkuk Oluştur
+                      </button>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+              <tfoot>
+                <tr style={{ background: '#fffbeb', fontWeight: '800' }}>
+                  <td colSpan={6} style={{ padding: '10px 14px', color: '#d97706' }}>TOPLAM FAİZ</td>
+                  <td style={{ padding: '10px 14px', color: '#dc2626' }}>{paraFormat(p.faizListesi.reduce((a: number, f: any) => a + f.faiz, 0))}</td>
+                  <td></td>
+                </tr>
+              </tfoot>
+            </table>
+          </div>
+        )}
       </div>
 
       {/* Tahakkuk Listesi ve Silme */}
@@ -1505,7 +1639,190 @@ function DashboardIcerik(p: any) {
     <BorcRaporu daireler={p.daireler} />
   )
 
+  if (aktifSayfa === 'banka_import') return (
+    <BankaImport daireler={p.daireler} sakinler={p.sakinler} />
+  )
+
   return null
+}
+
+function BankaImport({ daireler, sakinler }: { daireler: any[], sakinler: any[] }) {
+  const [satirlar, setSatirlar]       = useState<any[]>([])
+  const [eslesmeler, setEslesmeler]   = useState<any>({})
+  const [yukleniyor, setYukleniyor]   = useState(false)
+  const [mesaj, setMesaj]             = useState<any>(null)
+  const [sonuc, setSonuc]             = useState<any>(null)
+
+  const dosyaOku = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const dosya = e.target.files?.[0]
+    if (!dosya) return
+    setYukleniyor(true); setMesaj(null); setSonuc(null); setSatirlar([]); setEslesmeler({})
+
+    const buffer = await dosya.arrayBuffer()
+    const wb = XLSX.read(buffer, { type: 'array' })
+    const ws = wb.Sheets[wb.SheetNames[0]]
+    const data = XLSX.utils.sheet_to_json(ws, { header: 1 }) as any[][]
+
+    if (data.length < 2) { setMesaj({ tip: 'hata', metin: 'Excel dosyası boş veya hatalı.' }); setYukleniyor(false); return }
+
+    // İlk satır header, kalanlar data
+    const headers = data[0].map((h: any) => String(h).toLowerCase().trim())
+    const satirVeriler = data.slice(1).filter((r: any[]) => r.some(c => c !== null && c !== '')).map((row: any[], i: number) => {
+      const obj: any = { _index: i }
+      headers.forEach((h: string, j: number) => { obj[h] = row[j] })
+      return obj
+    })
+
+    // Ad soyad kolonunu bul
+    const adKolon = headers.find((h: string) => h.includes('ad') || h.includes('isim') || h.includes('soyad') || h.includes('müşteri') || h.includes('gönderen'))
+    const tutarKolon = headers.find((h: string) => h.includes('tutar') || h.includes('miktar') || h.includes('amount'))
+    const tarihKolon = headers.find((h: string) => h.includes('tarih') || h.includes('date'))
+    const aciklamaKolon = headers.find((h: string) => h.includes('açıklama') || h.includes('aciklama') || h.includes('description') || h.includes('not'))
+
+    const islenmis = satirVeriler.map((r: any) => ({
+      _index: r._index,
+      ad_soyad: adKolon ? String(r[adKolon] || '').trim() : '',
+      tutar: tutarKolon ? parseFloat(String(r[tutarKolon]).replace(',', '.').replace(/[^0-9.]/g, '')) || 0 : 0,
+      tarih: tarihKolon ? r[tarihKolon] : '',
+      aciklama: aciklamaKolon ? String(r[aciklamaKolon] || '').trim() : '',
+      ham: r
+    }))
+
+    setSatirlar(islenmis)
+
+    // Otomatik eşleştirme — ad soyad benzerliğine göre
+    const eslesme: any = {}
+    islenmis.forEach((satir: any) => {
+      const aranan = satir.ad_soyad.toLowerCase()
+      let enIyi: any = null, enIyiSkor = 0
+      sakinler.forEach((s: any) => {
+        const sakinAd = s.ad_soyad.toLowerCase()
+        // Basit benzerlik: kelimelerin kaçı eşleşiyor
+        const kelimeler = aranan.split(' ').filter(Boolean)
+        const eslesenKelime = kelimeler.filter((k: string) => sakinAd.includes(k)).length
+        const skor = kelimeler.length > 0 ? eslesenKelime / kelimeler.length : 0
+        if (skor > enIyiSkor) { enIyiSkor = skor; enIyi = s }
+      })
+      if (enIyi && enIyiSkor >= 0.5) eslesme[satir._index] = enIyi.id
+    })
+    setEslesmeler(eslesme)
+    setYukleniyor(false)
+  }
+
+  const kaydet = async () => {
+    setYukleniyor(true); setMesaj(null)
+    let basarili = 0, atlailan = 0, hata = 0
+
+    for (const satir of satirlar) {
+      const sakinId = eslesmeler[satir._index]
+      if (!sakinId || !satir.tutar) { atlailan++; continue }
+
+      // Sakinin dairesin bul
+      const daire = daireler.find((d: any) => d.kullanici_id === sakinId)
+      if (!daire) { atlailan++; continue }
+
+      // Açık tahakkukları bul
+      const { data: thData } = await supabase
+        .from('tahakkuklar').select('id, tutar, durum')
+        .eq('daire_id', daire.id).neq('durum', 'odendi')
+        .order('donem_yil').order('donem_ay').limit(1)
+
+      if (!thData || thData.length === 0) { atlailan++; continue }
+
+      const th = thData[0]
+      const tarihStr = satir.tarih ? new Date(satir.tarih).toISOString().split('T')[0] : new Date().toISOString().split('T')[0]
+
+      const { error } = await supabase.from('odemeler').insert({
+        tahakkuk_id: th.id,
+        odeme_tarihi: tarihStr,
+        tutar: satir.tutar,
+        odeme_yontemi: 'havale',
+        aciklama: `Banka import: ${satir.aciklama || satir.ad_soyad}`
+      })
+
+      if (error) { hata++; continue }
+
+      // Tahakkuk durumunu güncelle
+      const { data: odTop } = await supabase.from('odemeler').select('tutar').eq('tahakkuk_id', th.id)
+      const top = odTop?.reduce((a: number, o: any) => a + Number(o.tutar), 0) || 0
+      if (top >= Number(th.tutar)) await supabase.from('tahakkuklar').update({ durum: 'odendi' }).eq('id', th.id)
+
+      basarili++
+    }
+
+    setSonuc({ basarili, atlailan, hata })
+    setMesaj({ tip: basarili > 0 ? 'basari' : 'hata', metin: `${basarili} ödeme kaydedildi, ${atlailan} atlandı${hata > 0 ? `, ${hata} hata` : ''}.` })
+    setYukleniyor(false)
+  }
+
+  return (
+    <div>
+      <h2 style={{ color: '#1a3c5e', marginBottom: '20px' }}>🏦 Banka Excel Import</h2>
+
+      {/* Dosya Yükle */}
+      <div style={{ background: '#fff', borderRadius: '12px', padding: '24px', boxShadow: '0 2px 8px rgba(0,0,0,.06)', border: '1px solid #e5e7eb', marginBottom: '20px' }}>
+        <div style={{ fontWeight: '700', color: '#374151', marginBottom: '8px' }}>📂 Garanti Bankası Excel Dosyası</div>
+        <div style={{ color: '#6b7280', fontSize: '.85rem', marginBottom: '16px' }}>Beklenen kolonlar: Ad Soyad, Tutar, Tarih, Açıklama</div>
+        <input type="file" accept=".xlsx,.xls,.csv" onChange={dosyaOku} disabled={yukleniyor}
+          style={{ padding: '8px', border: '2px dashed #d1d5db', borderRadius: '8px', width: '100%', boxSizing: 'border-box', cursor: 'pointer', fontSize: '.85rem' }} />
+        {yukleniyor && <div style={{ marginTop: '12px', color: '#6b7280', fontSize: '.85rem' }}>⏳ İşleniyor...</div>}
+      </div>
+
+      {mesaj && (
+        <div style={{ background: mesaj.tip === 'basari' ? '#dcfce7' : '#fee2e2', color: mesaj.tip === 'basari' ? '#166534' : '#991b1b', borderRadius: '10px', padding: '14px 20px', marginBottom: '20px', fontWeight: '600' }}>
+          {mesaj.metin}
+          {sonuc && <div style={{ marginTop: '8px', fontSize: '.82rem', fontWeight: '400' }}>✅ {sonuc.basarili} kayıt · ⏭️ {sonuc.atlailan} atlandı{sonuc.hata > 0 ? ` · ❌ ${sonuc.hata} hata` : ''}</div>}
+        </div>
+      )}
+
+      {/* Önizleme Tablosu */}
+      {satirlar.length > 0 && (
+        <div style={{ background: '#fff', borderRadius: '12px', boxShadow: '0 2px 8px rgba(0,0,0,.06)', border: '1px solid #e5e7eb', overflow: 'hidden' }}>
+          <div style={{ background: '#1a3c5e', color: '#fff', padding: '12px 20px', fontWeight: '700', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+            <span>📋 Önizleme — {satirlar.length} satır</span>
+            <button onClick={kaydet} disabled={yukleniyor} style={{ background: '#16a34a', color: '#fff', border: 'none', borderRadius: '8px', padding: '7px 16px', cursor: 'pointer', fontWeight: '700', fontSize: '.85rem' }}>
+              {yukleniyor ? '⏳ Kaydediliyor...' : '💾 Ödemeleri Kaydet'}
+            </button>
+          </div>
+          <div style={{ overflowX: 'auto' }}>
+            <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '.85rem' }}>
+              <thead>
+                <tr style={{ background: '#f8fafc' }}>
+                  {["Gönderen","Tutar","Tarih","Açıklama","Eşleştirilen Sakin"].map(h => (
+                    <th key={h} style={{ padding: '10px 14px', textAlign: 'left', color: '#6b7280', fontWeight: '700', fontSize: '.75rem', textTransform: 'uppercase', borderBottom: '2px solid #e5e7eb', whiteSpace: 'nowrap' }}>{h}</th>
+                  ))}
+                </tr>
+              </thead>
+              <tbody>
+                {satirlar.map((satir: any, i: number) => {
+                  const eslesenSakinId = eslesmeler[satir._index]
+                  const eslesenSakin = sakinler.find((s: any) => s.id === eslesenSakinId)
+                  return (
+                    <tr key={satir._index} style={{ background: i % 2 === 0 ? '#fff' : '#f9fafb', borderBottom: '1px solid #f3f4f6' }}>
+                      <td style={{ padding: '9px 14px', fontWeight: '600' }}>{satir.ad_soyad || '—'}</td>
+                      <td style={{ padding: '9px 14px', color: '#16a34a', fontWeight: '700' }}>{satir.tutar > 0 ? paraFormat(satir.tutar) : '—'}</td>
+                      <td style={{ padding: '9px 14px', color: '#6b7280' }}>{satir.tarih ? new Date(satir.tarih).toLocaleDateString('tr-TR') : '—'}</td>
+                      <td style={{ padding: '9px 14px', color: '#6b7280', maxWidth: '200px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{satir.aciklama || '—'}</td>
+                      <td style={{ padding: '9px 14px' }}>
+                        <select value={eslesenSakinId || ''} onChange={(e: any) => setEslesmeler((prev: any) => ({ ...prev, [satir._index]: e.target.value || null }))}
+                          style={{ padding: '5px 8px', borderRadius: '6px', border: `1px solid ${eslesenSakin ? '#86efac' : '#fca5a5'}`, fontSize: '.8rem', background: eslesenSakin ? '#f0fdf4' : '#fff5f5' }}>
+                          <option value="">-- Eşleştir --</option>
+                          {sakinler.map((s: any) => <option key={s.id} value={s.id}>{s.ad_soyad}</option>)}
+                        </select>
+                      </td>
+                    </tr>
+                  )
+                })}
+              </tbody>
+            </table>
+          </div>
+          <div style={{ padding: '12px 20px', background: '#f0f9ff', fontSize: '.82rem', color: '#6b7280' }}>
+            💡 Otomatik eşleştirme yapıldı. Hatalı eşleşmeleri dropdown'dan düzeltin, sonra Kaydet'e basın.
+          </div>
+        </div>
+      )}
+    </div>
+  )
 }
 
 function BorcRaporu({ daireler }: { daireler: any[] }) {
