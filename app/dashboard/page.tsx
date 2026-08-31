@@ -46,6 +46,10 @@ export default function Dashboard() {
   const [sakinEkleYukleniyor, setSakinEkleYukleniyor] = useState(false)
 
   const [duzenlenecekSakin, setDuzenlenecekSakin] = useState<any>(null)
+  const [sifreSakin, setSifreSakin]               = useState<any>(null)
+  const [yeniSifre, setYeniSifre]                 = useState('')
+  const [sifreMesaj, setSifreMesaj]               = useState<any>(null)
+  const [sifreYukleniyor, setSifreYukleniyor]     = useState(false)
   const [sakinDuzenleForm, setSakinDuzenleForm]   = useState({ ad_soyad: '', telefon: '', durum: 'aktif' })
   const [sakinDuzenleMesaj, setSakinDuzenleMesaj] = useState<any>(null)
 
@@ -243,6 +247,16 @@ export default function Dashboard() {
   }
 
   const sakinDuzenleAc = (s: any) => { setDuzenlenecekSakin(s); setSakinDuzenleForm({ ad_soyad: s.ad_soyad, telefon: s.telefon || '', durum: s.durum }); setSakinDuzenleMesaj(null) }
+
+  const sakinSifreSifirla = async (e: React.FormEvent) => {
+    e.preventDefault(); setSifreYukleniyor(true); setSifreMesaj(null)
+    if (yeniSifre.length < 6) { setSifreMesaj({ tip: 'hata', metin: 'Şifre en az 6 karakter olmalı.' }); setSifreYukleniyor(false); return }
+    const res = await fetch('/api/sakin-sifre', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ userId: sifreSakin.id, sifre: yeniSifre }) })
+    const sonuc = await res.json()
+    if (sonuc.error) { setSifreMesaj({ tip: 'hata', metin: sonuc.error }) }
+    else { setSifreMesaj({ tip: 'basari', metin: 'Şifre başarıyla güncellendi!' }); setYeniSifre(''); setTimeout(() => setSifreSakin(null), 1500) }
+    setSifreYukleniyor(false)
+  }
 
   const sakinGuncelle = async (e: React.FormEvent) => {
     e.preventDefault(); setSakinDuzenleMesaj(null)
@@ -481,6 +495,7 @@ export default function Dashboard() {
           tahakkukListesi={tahakkukListesi} tahakkukFiltre={tahakkukFiltre} setTahakkukFiltre={setTahakkukFiltre} tahakkukListeYukle={tahakkukListeYukle} tahakkukSil={tahakkukSil}
           sakinEkleForm={sakinEkleForm} setSakinEkleForm={setSakinEkleForm} sakinEkleMesaj={sakinEkleMesaj} sakinEkleYukleniyor={sakinEkleYukleniyor} sakinEkle={sakinEkle}
           duzenlenecekSakin={duzenlenecekSakin} setDuzenlenecekSakin={setDuzenlenecekSakin} sakinDuzenleForm={sakinDuzenleForm} setSakinDuzenleForm={setSakinDuzenleForm} sakinDuzenleMesaj={sakinDuzenleMesaj} sakinDuzenleAc={sakinDuzenleAc} sakinGuncelle={sakinGuncelle}
+          sifreSakin={sifreSakin} setSifreSakin={setSifreSakin} yeniSifre={yeniSifre} setYeniSifre={setYeniSifre} sifreMesaj={sifreMesaj} sifreYukleniyor={sifreYukleniyor} sakinSifreSifirla={sakinSifreSifirla}
           tahsilatModal={tahsilatModal} setTahsilatModal={setTahsilatModal} tahsilatForm={tahsilatForm} setTahsilatForm={setTahsilatForm} sakinTahakkuklar={sakinTahakkuklar} tahsilatAc={tahsilatAc} tahsilatKaydet={tahsilatKaydet}
           bildirimOnayla={bildirimOnayla} bildirimReddet={bildirimReddet} arizaDurumGuncelle={arizaDurumGuncelle}
           duyuruForm={duyuruForm} setDuyuruForm={setDuyuruForm} duyuruMesaj={duyuruMesaj} duyuruYukleniyor={duyuruYukleniyor} duyuruEkle={duyuruEkle} duyuruSil={duyuruSil}
@@ -597,6 +612,7 @@ function DashboardIcerik(p: any) {
                     </div>
                     <div style={{ display: 'flex', gap: '6px', flexShrink: 0 }}>
                       <button onClick={() => p.sakinDuzenleAc(s)} style={{ background: '#eff6ff', color: '#1a3c5e', border: 'none', borderRadius: '8px', padding: '6px 10px', cursor: 'pointer', fontSize: '.78rem', fontWeight: '700' }}>✏️</button>
+                      <button onClick={() => { p.setSifreSakin(s); p.setYeniSifre(''); p.setSifreMesaj(null) }} style={{ background: '#fef3c7', color: '#d97706', border: 'none', borderRadius: '8px', padding: '6px 10px', cursor: 'pointer', fontSize: '.78rem', fontWeight: '700' }}>🔑</button>
                       <button onClick={() => p.tahsilatAc(s)} style={{ background: '#dcfce7', color: '#166534', border: 'none', borderRadius: '8px', padding: '6px 10px', cursor: 'pointer', fontSize: '.78rem', fontWeight: '700' }}>💰</button>
                       <button onClick={async () => {
                         if (!confirm(`${s.ad_soyad} ${s.durum === 'aktif' ? 'pasife' : 'aktife'} alınsın mı?`)) return
@@ -636,6 +652,34 @@ function DashboardIcerik(p: any) {
                 <div style={{ display: 'flex', gap: '8px' }}>
                   <button type="button" onClick={() => p.setDuzenlenecekSakin(null)} style={{ flex: 1, padding: '10px', background: '#f3f4f6', color: '#374151', border: 'none', borderRadius: '10px', cursor: 'pointer', fontWeight: '700' }}>İptal</button>
                   <button type="submit" style={{ flex: 1, padding: '10px', background: '#1a3c5e', color: '#fff', border: 'none', borderRadius: '10px', cursor: 'pointer', fontWeight: '700' }}>💾 Kaydet</button>
+                </div>
+              </form>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Şifre Sıfırlama Modal */}
+      {p.sifreSakin && (
+        <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,.5)', zIndex: 200, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '20px' }}>
+          <div style={{ background: '#fff', borderRadius: '16px', width: '100%', maxWidth: '380px', overflow: 'hidden' }}>
+            <div style={{ background: '#d97706', color: '#fff', padding: '16px 20px', fontWeight: '700', display: 'flex', justifyContent: 'space-between' }}>
+              <span>🔑 Şifre Sıfırla — {p.sifreSakin.ad_soyad}</span>
+              <button onClick={() => p.setSifreSakin(null)} style={{ background: 'none', border: 'none', color: '#fff', cursor: 'pointer', fontSize: '1.2rem' }}>✕</button>
+            </div>
+            <div style={{ padding: '20px' }}>
+              {p.sifreMesaj && <div style={{ background: p.sifreMesaj.tip === 'basari' ? '#dcfce7' : '#fee2e2', color: p.sifreMesaj.tip === 'basari' ? '#166534' : '#991b1b', borderRadius: '8px', padding: '12px', marginBottom: '16px', fontSize: '.85rem', fontWeight: '600' }}>{p.sifreMesaj.metin}</div>}
+              <form onSubmit={p.sakinSifreSifirla}>
+                <div style={{ marginBottom: '20px' }}>
+                  <label style={{ display: 'block', fontWeight: '700', fontSize: '.82rem', color: '#374151', marginBottom: '6px' }}>Yeni Şifre</label>
+                  <input type="password" required minLength={6} value={p.yeniSifre} onChange={(e: any) => p.setYeniSifre(e.target.value)} placeholder="En az 6 karakter" style={{ width: '100%', padding: '9px 12px', borderRadius: '8px', border: '1px solid #d1d5db', fontSize: '.85rem', boxSizing: 'border-box' }} />
+                  <div style={{ color: '#9ca3af', fontSize: '.75rem', marginTop: '4px' }}>Sakin bir sonraki girişte bu şifreyi kullanacak.</div>
+                </div>
+                <div style={{ display: 'flex', gap: '8px' }}>
+                  <button type="button" onClick={() => p.setSifreSakin(null)} style={{ flex: 1, padding: '10px', background: '#f3f4f6', color: '#374151', border: 'none', borderRadius: '10px', cursor: 'pointer', fontWeight: '700' }}>İptal</button>
+                  <button type="submit" disabled={p.sifreYukleniyor} style={{ flex: 1, padding: '10px', background: p.sifreYukleniyor ? '#9ca3af' : '#d97706', color: '#fff', border: 'none', borderRadius: '10px', cursor: 'pointer', fontWeight: '700' }}>
+                    {p.sifreYukleniyor ? 'Güncelleniyor...' : '🔑 Şifreyi Güncelle'}
+                  </button>
                 </div>
               </form>
             </div>
