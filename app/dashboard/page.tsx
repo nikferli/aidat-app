@@ -31,6 +31,8 @@ export default function Dashboard() {
   const [menuAcik, setMenuAcik]                 = useState(false)
 
   const [tahakkukMesaj, setTahakkukMesaj]       = useState<any>(null)
+  const [tahakkukListesi, setTahakkukListesi]   = useState<any[]>([])
+  const [tahakkukFiltre, setTahakkukFiltre]     = useState({ daire_id: '', yil: new Date().getFullYear() })
   const [tahakkukYukleniyor, setTahakkukYukleniyor] = useState(false)
   const [tahakkukForm, setTahakkukForm]         = useState({
     daire_id: '', tur_id: '', tutar: '',
@@ -192,6 +194,23 @@ export default function Dashboard() {
   const turSecildi = (turId: string) => {
     const tur = aidatTurleri.find(t => t.id === parseInt(turId))
     setTahakkukForm(f => ({ ...f, tur_id: turId, tutar: tur ? String(tur.varsayilan_tutar) : '' }))
+  }
+
+  const tahakkukListeYukle = async (daireId?: string, yil?: number) => {
+    const fDaireId = daireId || tahakkukFiltre.daire_id
+    const fYil     = yil || tahakkukFiltre.yil
+    let query = supabase.from('tahakkuklar').select('*, aidat_turleri(tur_adi), daireler(daire_no, bloklar(blok_adi))').eq('donem_yil', fYil).order('donem_yil', { ascending: false }).order('donem_ay', { ascending: false })
+    if (fDaireId) query = query.eq('daire_id', parseInt(fDaireId))
+    const { data } = await query
+    setTahakkukListesi(data || [])
+  }
+
+  const tahakkukSil = async (id: number) => {
+    if (!confirm('Bu tahakkuk silinecek. Ödemeleri de silinecek. Emin misiniz?')) return
+    await supabase.from('odemeler').delete().eq('tahakkuk_id', id)
+    await supabase.from('odeme_bildirimleri').delete().eq('tahakkuk_id', id)
+    await supabase.from('tahakkuklar').delete().eq('id', id)
+    setTahakkukListesi(prev => prev.filter(t => t.id !== id))
   }
 
   const tahakkukKaydet = async (e: React.FormEvent) => {
@@ -459,6 +478,7 @@ export default function Dashboard() {
           aidatTurleri={aidatTurleri} setAidatTurleri={setAidatTurleri} duyurular={duyurular} setDuyurular={setDuyurular}
           giderler={giderler} setGiderler={setGiderler} butce={butce} odemeler={odemeler}
           tahakkukForm={tahakkukForm} setTahakkukForm={setTahakkukForm} tahakkukMesaj={tahakkukMesaj} tahakkukYukleniyor={tahakkukYukleniyor} tahakkukKaydet={tahakkukKaydet} turSecildi={turSecildi}
+          tahakkukListesi={tahakkukListesi} tahakkukFiltre={tahakkukFiltre} setTahakkukFiltre={setTahakkukFiltre} tahakkukListeYukle={tahakkukListeYukle} tahakkukSil={tahakkukSil}
           sakinEkleForm={sakinEkleForm} setSakinEkleForm={setSakinEkleForm} sakinEkleMesaj={sakinEkleMesaj} sakinEkleYukleniyor={sakinEkleYukleniyor} sakinEkle={sakinEkle}
           duzenlenecekSakin={duzenlenecekSakin} setDuzenlenecekSakin={setDuzenlenecekSakin} sakinDuzenleForm={sakinDuzenleForm} setSakinDuzenleForm={setSakinDuzenleForm} sakinDuzenleMesaj={sakinDuzenleMesaj} sakinDuzenleAc={sakinDuzenleAc} sakinGuncelle={sakinGuncelle}
           tahsilatModal={tahsilatModal} setTahsilatModal={setTahsilatModal} tahsilatForm={tahsilatForm} setTahsilatForm={setTahsilatForm} sakinTahakkuklar={sakinTahakkuklar} tahsilatAc={tahsilatAc} tahsilatKaydet={tahsilatKaydet}
@@ -725,6 +745,62 @@ function DashboardIcerik(p: any) {
             </div>
           ))}
         </div>
+      </div>
+
+      {/* Tahakkuk Listesi ve Silme */}
+      <div style={{ marginTop: '24px', background: '#fff', borderRadius: '12px', boxShadow: '0 2px 8px rgba(0,0,0,.06)', border: '1px solid #e5e7eb', overflow: 'hidden' }}>
+        <div style={{ background: '#dc2626', color: '#fff', padding: '12px 20px', fontWeight: '700' }}>🗑️ Tahakkuk Listesi / Sil</div>
+        <div style={{ padding: '16px 20px', borderBottom: '1px solid #f3f4f6', display: 'flex', gap: '12px', flexWrap: 'wrap', alignItems: 'flex-end' }}>
+          <div>
+            <label style={{ display: 'block', fontWeight: '700', fontSize: '.78rem', color: '#6b7280', marginBottom: '4px' }}>Daire</label>
+            <select value={p.tahakkukFiltre.daire_id} onChange={(e: any) => p.setTahakkukFiltre((f: any) => ({ ...f, daire_id: e.target.value }))} style={{ padding: '7px 12px', borderRadius: '8px', border: '1px solid #d1d5db', fontSize: '.85rem' }}>
+              <option value="">Tümü</option>
+              {p.daireler.map((d: any) => <option key={d.id} value={d.id}>{d.bloklar?.blok_adi} Blok - {d.daire_no}{d.profiller?.ad_soyad ? ` (${d.profiller.ad_soyad})` : ''}</option>)}
+            </select>
+          </div>
+          <div>
+            <label style={{ display: 'block', fontWeight: '700', fontSize: '.78rem', color: '#6b7280', marginBottom: '4px' }}>Yıl</label>
+            <select value={p.tahakkukFiltre.yil} onChange={(e: any) => p.setTahakkukFiltre((f: any) => ({ ...f, yil: parseInt(e.target.value) }))} style={{ padding: '7px 12px', borderRadius: '8px', border: '1px solid #d1d5db', fontSize: '.85rem' }}>
+              {[2024,2025,2026,2027].map(y => <option key={y} value={y}>{y}</option>)}
+            </select>
+          </div>
+          <button onClick={() => p.tahakkukListeYukle(p.tahakkukFiltre.daire_id, p.tahakkukFiltre.yil)} style={{ padding: '7px 16px', background: '#1a3c5e', color: '#fff', border: 'none', borderRadius: '8px', cursor: 'pointer', fontWeight: '700', fontSize: '.85rem' }}>🔍 Listele</button>
+        </div>
+        {p.tahakkukListesi.length === 0 ? (
+          <div style={{ padding: '32px', textAlign: 'center', color: '#9ca3af' }}>Listele butonuna basın.</div>
+        ) : (
+          <div style={{ overflowX: 'auto' }}>
+            <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '.85rem' }}>
+              <thead>
+                <tr style={{ background: '#f8fafc' }}>
+                  {['Daire','Tür','Dönem','Tutar','Durum','Sil'].map(h => (
+                    <th key={h} style={{ padding: '10px 14px', textAlign: 'left', color: '#6b7280', fontWeight: '700', fontSize: '.75rem', textTransform: 'uppercase', borderBottom: '2px solid #e5e7eb' }}>{h}</th>
+                  ))}
+                </tr>
+              </thead>
+              <tbody>
+                {p.tahakkukListesi.map((t: any, i: number) => (
+                  <tr key={t.id} style={{ background: i % 2 === 0 ? '#fff' : '#f9fafb', borderBottom: '1px solid #f3f4f6' }}>
+                    <td style={{ padding: '9px 14px', fontWeight: '600' }}>{(t.daireler as any)?.bloklar?.blok_adi} Blok - {(t.daireler as any)?.daire_no}</td>
+                    <td style={{ padding: '9px 14px' }}>{t.aidat_turleri?.tur_adi}</td>
+                    <td style={{ padding: '9px 14px' }}>{ayAdi(t.donem_ay)} {t.donem_yil}</td>
+                    <td style={{ padding: '9px 14px', fontWeight: '700' }}>{paraFormat(Number(t.tutar))}</td>
+                    <td style={{ padding: '9px 14px' }}>
+                      <span style={{ background: t.durum === 'odendi' ? '#dcfce7' : t.durum === 'gecikti' ? '#fee2e2' : '#fef3c7', color: t.durum === 'odendi' ? '#166534' : t.durum === 'gecikti' ? '#991b1b' : '#92400e', padding: '2px 8px', borderRadius: '20px', fontSize: '.72rem', fontWeight: '700' }}>
+                        {t.durum === 'odendi' ? '✓ Ödendi' : t.durum === 'gecikti' ? '⚠ Gecikti' : '○ Bekliyor'}
+                      </span>
+                    </td>
+                    <td style={{ padding: '9px 14px' }}>
+                      {t.durum !== 'odendi' && (
+                        <button onClick={() => p.tahakkukSil(t.id)} style={{ background: '#fee2e2', color: '#dc2626', border: 'none', borderRadius: '6px', padding: '4px 10px', cursor: 'pointer', fontSize: '.75rem', fontWeight: '700' }}>🗑️ Sil</button>
+                      )}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
       </div>
     </div>
   )
@@ -1412,7 +1488,7 @@ function BorcRaporu({ daireler }: { daireler: any[] }) {
           daire,
           tahakkuklar,
           toplamTahakkuk,
-          toplamOdened: tahakkuklar.reduce((a: number, t: any) => a + (odemeMap[t.id] || 0), 0),
+          toplamOdenen: tahakkuklar.reduce((a: number, t: any) => a + (odemeMap[t.id] || 0), 0),
           toplamOdenen: tahakkuklar.reduce((a: number, t: any) => a + (odemeMap[t.id] || 0), 0),
           toplamKalan,
           gecikmisToplam,
