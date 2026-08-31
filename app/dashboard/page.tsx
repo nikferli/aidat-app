@@ -579,6 +579,7 @@ export default function Dashboard() {
           eslestirmeForm={eslestirmeForm} setEslestirmeForm={setEslestirmeForm} eslestirmeMesaj={eslestirmeMesaj} eslestirmeYukleniyor={eslestirmeYukleniyor} daireEslestir={daireEslestir}
           kategoriler={kategoriler}
           setIstatistik={setIstatistik}
+          setAktifSayfa={setAktifSayfa}
           daireDetay={daireDetay} setDaireDetay={setDaireDetay}
           daireDetayVeri={daireDetayVeri} daireDetayYukleniyor={daireDetayYukleniyor}
           daireDetayAc={daireDetayAc}
@@ -603,15 +604,29 @@ function DashboardIcerik(p: any) {
 
   if (aktifSayfa === 'dashboard') return (
     <div>
-      <h2 style={{ color: '#1a3c5e', marginBottom: '24px' }}>Hoş geldiniz, {p.kullanici?.ad_soyad} 👋</h2>
+      <h2 style={{ color: '#1a3c5e', marginBottom: '20px' }}>Hoş geldiniz, {p.kullanici?.ad_soyad} 👋</h2>
+
+      {/* Uyarılar */}
       {((p.istatistik.bekleyenBildirim || 0) > 0 || (p.istatistik.acikAriza || 0) > 0) && (
-        <div style={{ background: '#fef3c7', border: '2px solid #f59e0b', borderRadius: '12px', padding: '16px 20px', marginBottom: '24px' }}>
+        <div style={{ background: '#fef3c7', border: '2px solid #f59e0b', borderRadius: '12px', padding: '16px 20px', marginBottom: '20px' }}>
           <div style={{ fontWeight: '700', color: '#92400e', marginBottom: '8px' }}>⚠️ Dikkat Gerektiren Durumlar</div>
-          {(p.istatistik.bekleyenBildirim || 0) > 0 && <div style={{ color: '#92400e', fontSize: '.9rem', marginBottom: '4px' }}>• {p.istatistik.bekleyenBildirim} bekleyen ödeme bildirimi</div>}
-          {(p.istatistik.acikAriza || 0) > 0 && <div style={{ color: '#92400e', fontSize: '.9rem' }}>• {p.istatistik.acikAriza} açık arıza talebi</div>}
+          {(p.istatistik.bekleyenBildirim || 0) > 0 && (
+            <div style={{ color: '#92400e', fontSize: '.9rem', marginBottom: '4px', display: 'flex', alignItems: 'center', gap: '8px' }}>
+              • {p.istatistik.bekleyenBildirim} bekleyen ödeme bildirimi
+              <button onClick={() => p.setAktifSayfa('bildirimler')} style={{ background: '#f59e0b', color: '#fff', border: 'none', borderRadius: '6px', padding: '2px 8px', cursor: 'pointer', fontSize: '.78rem', fontWeight: '700' }}>İncele →</button>
+            </div>
+          )}
+          {(p.istatistik.acikAriza || 0) > 0 && (
+            <div style={{ color: '#92400e', fontSize: '.9rem', display: 'flex', alignItems: 'center', gap: '8px' }}>
+              • {p.istatistik.acikAriza} açık arıza talebi
+              <button onClick={() => p.setAktifSayfa('arizalar')} style={{ background: '#f59e0b', color: '#fff', border: 'none', borderRadius: '6px', padding: '2px 8px', cursor: 'pointer', fontSize: '.78rem', fontWeight: '700' }}>İncele →</button>
+            </div>
+          )}
         </div>
       )}
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(160px, 1fr))', gap: '16px', marginBottom: '32px' }}>
+
+      {/* İstatistik Kartları */}
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(150px, 1fr))', gap: '12px', marginBottom: '20px' }}>
         {[
           { etiket: 'Toplam Sakin', deger: p.istatistik.toplamSakin || 0, renk: '#1a3c5e', ikon: '👥' },
           { etiket: 'Dolu Daire', deger: `${p.istatistik.dolDaire || 0}/${p.istatistik.toplamDaire || 0}`, renk: '#16a34a', ikon: '🏠' },
@@ -620,21 +635,132 @@ function DashboardIcerik(p: any) {
           { etiket: 'Bekl. Bildirim', deger: p.istatistik.bekleyenBildirim || 0, renk: '#d97706', ikon: '✉️' },
           { etiket: 'Açık Arıza', deger: p.istatistik.acikAriza || 0, renk: '#7c3aed', ikon: '🔧' },
         ].map(k => (
-          <div key={k.etiket} style={{ background: '#fff', borderRadius: '12px', padding: '20px', boxShadow: '0 2px 8px rgba(0,0,0,.06)', border: '1px solid #e5e7eb', textAlign: 'center' }}>
-            <div style={{ fontSize: '1.6rem', marginBottom: '8px' }}>{k.ikon}</div>
-            <div style={{ fontSize: '1.2rem', fontWeight: '800', color: k.renk, marginBottom: '4px' }}>{k.deger}</div>
-            <div style={{ color: '#6b7280', fontSize: '.75rem', fontWeight: '600' }}>{k.etiket}</div>
+          <div key={k.etiket} style={{ background: '#fff', borderRadius: '12px', padding: '16px', boxShadow: '0 2px 8px rgba(0,0,0,.06)', border: '1px solid #e5e7eb', textAlign: 'center' }}>
+            <div style={{ fontSize: '1.4rem', marginBottom: '6px' }}>{k.ikon}</div>
+            <div style={{ fontSize: '1.1rem', fontWeight: '800', color: k.renk, marginBottom: '4px' }}>{k.deger}</div>
+            <div style={{ color: '#6b7280', fontSize: '.72rem', fontWeight: '600' }}>{k.etiket}</div>
           </div>
         ))}
       </div>
-      <h3 style={{ color: '#374151', marginBottom: '16px' }}>🏢 Bloklar</h3>
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '16px' }}>
-        {['A','B','C','D'].map(b => (
-          <div key={b} style={{ background: '#fff', borderRadius: '12px', padding: '20px', textAlign: 'center', boxShadow: '0 2px 8px rgba(0,0,0,.06)', border: '1px solid #e5e7eb' }}>
-            <div style={{ fontSize: '2.5rem', fontWeight: '800', color: '#1a3c5e' }}>{b}</div>
-            <div style={{ color: '#6b7280', fontSize: '.85rem' }}>{b} Blok</div>
+
+      {/* Finansal Özet */}
+      {(() => {
+        const tahsilat = p.istatistik.toplamTahakkuk || 0
+        const gecikme  = p.istatistik.gecikmisTahakkuk || 0
+        const odenen   = tahsilat - gecikme
+        const oran     = tahsilat > 0 ? Math.round(odenen / tahsilat * 100) : 0
+        const oranRenk = oran >= 90 ? '#16a34a' : oran >= 70 ? '#d97706' : '#dc2626'
+        return (
+          <div style={{ background: '#fff', borderRadius: '12px', padding: '20px', boxShadow: '0 2px 8px rgba(0,0,0,.06)', border: '1px solid #e5e7eb', marginBottom: '20px' }}>
+            <div style={{ fontWeight: '700', color: '#1a3c5e', marginBottom: '16px', fontSize: '1rem' }}>💰 Finansal Özet</div>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(140px, 1fr))', gap: '12px', marginBottom: '16px' }}>
+              {[
+                { label: 'Toplam Tahakkuk', deger: paraFormat(tahsilat), renk: '#1a3c5e' },
+                { label: 'Tahsil Edilen', deger: paraFormat(odenen), renk: '#16a34a' },
+                { label: 'Gecikmiş', deger: paraFormat(gecikme), renk: '#dc2626' },
+              ].map(k => (
+                <div key={k.label} style={{ background: '#f8fafc', borderRadius: '10px', padding: '14px', textAlign: 'center', border: '1px solid #e5e7eb' }}>
+                  <div style={{ color: '#6b7280', fontSize: '.72rem', fontWeight: '700', textTransform: 'uppercase', marginBottom: '4px' }}>{k.label}</div>
+                  <div style={{ fontWeight: '800', color: k.renk, fontSize: '1rem' }}>{k.deger}</div>
+                </div>
+              ))}
+            </div>
+            <div style={{ marginBottom: '6px', display: 'flex', justifyContent: 'space-between', fontSize: '.82rem' }}>
+              <span style={{ fontWeight: '700', color: '#374151' }}>Genel Tahsilat Oranı</span>
+              <span style={{ fontWeight: '800', color: oranRenk }}>%{oran}</span>
+            </div>
+            <div style={{ background: '#f3f4f6', borderRadius: '6px', height: '10px' }}>
+              <div style={{ background: oranRenk, width: `${Math.min(oran, 100)}%`, height: '100%', borderRadius: '6px', transition: 'width .5s ease' }} />
+            </div>
           </div>
-        ))}
+        )
+      })()}
+
+      {/* Bloklar — tıklanabilir */}
+      <div style={{ marginBottom: '20px' }}>
+        <div style={{ fontWeight: '700', color: '#374151', marginBottom: '12px', fontSize: '1rem' }}>🏢 Blok Durumu</div>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '12px' }}>
+          {['A','B','C','D'].map(b => {
+            const blokDaireler = p.daireler.filter((d: any) => d.bloklar?.blok_adi === b)
+            const dolu = blokDaireler.filter((d: any) => d.durum === 'dolu').length
+            const bos  = blokDaireler.filter((d: any) => d.durum === 'bos').length
+            const dolulukOrani = blokDaireler.length > 0 ? Math.round(dolu / blokDaireler.length * 100) : 0
+            return (
+              <div key={b} onClick={() => p.setAktifSayfa('daire_yonetim')}
+                style={{ background: '#fff', borderRadius: '12px', padding: '18px 20px', boxShadow: '0 2px 8px rgba(0,0,0,.06)', border: '1px solid #e5e7eb', cursor: 'pointer', transition: 'box-shadow .2s' }}
+                onMouseEnter={e => (e.currentTarget.style.boxShadow = '0 4px 16px rgba(0,0,0,.12)')}
+                onMouseLeave={e => (e.currentTarget.style.boxShadow = '0 2px 8px rgba(0,0,0,.06)')}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px' }}>
+                  <div style={{ fontSize: '1.8rem', fontWeight: '800', color: '#1a3c5e' }}>{b} Blok</div>
+                  <span style={{ background: '#eff6ff', color: '#1a3c5e', padding: '3px 10px', borderRadius: '20px', fontSize: '.75rem', fontWeight: '700' }}>{blokDaireler.length} Daire</span>
+                </div>
+                <div style={{ display: 'flex', gap: '12px', marginBottom: '10px' }}>
+                  <div style={{ flex: 1, textAlign: 'center', background: '#dcfce7', borderRadius: '8px', padding: '8px' }}>
+                    <div style={{ fontWeight: '800', color: '#166534', fontSize: '1.2rem' }}>{dolu}</div>
+                    <div style={{ color: '#166534', fontSize: '.72rem', fontWeight: '600' }}>Dolu</div>
+                  </div>
+                  <div style={{ flex: 1, textAlign: 'center', background: '#f3f4f6', borderRadius: '8px', padding: '8px' }}>
+                    <div style={{ fontWeight: '800', color: '#6b7280', fontSize: '1.2rem' }}>{bos}</div>
+                    <div style={{ color: '#6b7280', fontSize: '.72rem', fontWeight: '600' }}>Boş</div>
+                  </div>
+                </div>
+                <div style={{ marginBottom: '4px', display: 'flex', justifyContent: 'space-between', fontSize: '.78rem' }}>
+                  <span style={{ color: '#6b7280' }}>Doluluk</span>
+                  <span style={{ fontWeight: '700', color: dolulukOrani >= 80 ? '#16a34a' : '#d97706' }}>%{dolulukOrani}</span>
+                </div>
+                <div style={{ background: '#f3f4f6', borderRadius: '4px', height: '6px' }}>
+                  <div style={{ background: dolulukOrani >= 80 ? '#16a34a' : '#d97706', width: `${dolulukOrani}%`, height: '100%', borderRadius: '4px' }} />
+                </div>
+                <div style={{ marginTop: '10px', color: '#9ca3af', fontSize: '.72rem', textAlign: 'right' }}>Detay için tıklayın →</div>
+              </div>
+            )
+          })}
+        </div>
+      </div>
+
+      {/* Son Ödemeler + Son Arızalar */}
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))', gap: '16px' }}>
+        {/* Son Ödemeler */}
+        <div style={{ background: '#fff', borderRadius: '12px', boxShadow: '0 2px 8px rgba(0,0,0,.06)', border: '1px solid #e5e7eb', overflow: 'hidden' }}>
+          <div style={{ background: '#16a34a', color: '#fff', padding: '12px 20px', fontWeight: '700', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+            <span>💰 Son Ödemeler</span>
+            <button onClick={() => p.setAktifSayfa('odemeler')} style={{ background: 'rgba(255,255,255,.2)', border: 'none', color: '#fff', borderRadius: '6px', padding: '3px 10px', cursor: 'pointer', fontSize: '.75rem', fontWeight: '700' }}>Tümü →</button>
+          </div>
+          {p.odemeler.slice(0, 5).length === 0 ? (
+            <div style={{ padding: '24px', textAlign: 'center', color: '#9ca3af', fontSize: '.85rem' }}>Henüz ödeme yok.</div>
+          ) : p.odemeler.slice(0, 5).map((o: any, i: number) => (
+            <div key={o.id} style={{ padding: '10px 20px', borderBottom: i < 4 ? '1px solid #f3f4f6' : 'none', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+              <div>
+                <div style={{ fontWeight: '600', fontSize: '.85rem', color: '#374151' }}>{o.daire?.bloklar?.blok_adi} Blok - {o.daire?.daire_no}</div>
+                <div style={{ color: '#9ca3af', fontSize: '.75rem' }}>{new Date(o.odeme_tarihi).toLocaleDateString('tr-TR')} · {o.tur?.tur_adi}</div>
+              </div>
+              <span style={{ fontWeight: '800', color: '#16a34a', fontSize: '.95rem' }}>{paraFormat(Number(o.tutar))}</span>
+            </div>
+          ))}
+        </div>
+
+        {/* Son Arızalar */}
+        <div style={{ background: '#fff', borderRadius: '12px', boxShadow: '0 2px 8px rgba(0,0,0,.06)', border: '1px solid #e5e7eb', overflow: 'hidden' }}>
+          <div style={{ background: '#7c3aed', color: '#fff', padding: '12px 20px', fontWeight: '700', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+            <span>🔧 Açık Arızalar</span>
+            <button onClick={() => p.setAktifSayfa('arizalar')} style={{ background: 'rgba(255,255,255,.2)', border: 'none', color: '#fff', borderRadius: '6px', padding: '3px 10px', cursor: 'pointer', fontSize: '.75rem', fontWeight: '700' }}>Tümü →</button>
+          </div>
+          {p.arizalar.slice(0, 5).length === 0 ? (
+            <div style={{ padding: '24px', textAlign: 'center', color: '#9ca3af', fontSize: '.85rem' }}>Açık arıza yok. ✅</div>
+          ) : p.arizalar.slice(0, 5).map((a: any, i: number) => (
+            <div key={a.id} style={{ padding: '10px 20px', borderBottom: i < Math.min(p.arizalar.length, 5) - 1 ? '1px solid #f3f4f6' : 'none' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', gap: '8px' }}>
+                <div style={{ flex: 1 }}>
+                  <div style={{ fontWeight: '600', fontSize: '.85rem', color: '#374151' }}>{a.baslik}</div>
+                  <div style={{ color: '#9ca3af', fontSize: '.75rem' }}>{a.profiller?.ad_soyad} · {a.kategori}</div>
+                </div>
+                <span style={{ background: a.oncelik === 'yuksek' ? '#fee2e2' : '#f3f4f6', color: a.oncelik === 'yuksek' ? '#dc2626' : '#6b7280', padding: '2px 8px', borderRadius: '20px', fontSize: '.72rem', fontWeight: '700', flexShrink: 0 }}>
+                  {a.oncelik === 'yuksek' ? '🔴' : '🔵'} {a.oncelik}
+                </span>
+              </div>
+            </div>
+          ))}
+        </div>
       </div>
     </div>
   )
