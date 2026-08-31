@@ -1085,7 +1085,23 @@ function DashboardIcerik(p: any) {
             ))}
           </div>
           <div style={cardStyle}>
-            <div style={hdrStyle('#374151')}>📋 Son Giderler ({p.giderler.length})</div>
+            <div style={{ background: '#374151', color: '#fff', padding: '12px 20px', fontWeight: '700', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+              <span>📋 Son Giderler ({p.giderler.length})</span>
+              <button onClick={() => {
+                const ws = XLSX.utils.json_to_sheet(p.giderler.map((g: any) => ({
+                  'Tarih': new Date(g.gider_tarihi).toLocaleDateString('tr-TR'),
+                  'Kategori': g.kategori,
+                  'Açıklama': g.aciklama || '—',
+                  'Belge No': g.belge_no || '—',
+                  'Tutar (₺)': Number(g.tutar).toFixed(2),
+                })))
+                const wb = XLSX.utils.book_new()
+                XLSX.utils.book_append_sheet(wb, ws, 'Giderler')
+                XLSX.writeFile(wb, `giderler_${new Date().toISOString().split('T')[0]}.xlsx`)
+              }} style={{ background: '#16a34a', color: '#fff', border: 'none', borderRadius: '8px', padding: '5px 12px', cursor: 'pointer', fontSize: '.78rem', fontWeight: '700' }}>
+                📥 Excel
+              </button>
+            </div>
             <div style={{ maxHeight: '400px', overflowY: 'auto' }}>
               {p.giderler.length === 0 ? <div style={{ padding: '32px', textAlign: 'center', color: '#9ca3af' }}>Henüz gider yok.</div>
                 : p.giderler.map((g: any, i: number) => (
