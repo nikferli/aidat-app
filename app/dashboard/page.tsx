@@ -994,7 +994,7 @@ function DashboardIcerik(p: any) {
         <div style={{ background: '#d97706', color: '#fff', padding: '12px 20px', fontWeight: '700' }}>⚠️ Gecikme Faizi Tahakkuku</div>
         <div style={{ padding: '16px 20px', borderBottom: '1px solid #f3f4f6', display: 'flex', gap: '12px', alignItems: 'flex-end', flexWrap: 'wrap' }}>
           <div>
-            <label style={{ display: 'block', fontWeight: '700', fontSize: '.78rem', color: '#6b7280', marginBottom: '4px' }}>Yıllık Faiz Oranı (%)</label>
+            <label style={{ display: 'block', fontWeight: '700', fontSize: '.78rem', color: '#6b7280', marginBottom: '4px' }}>Aylık Faiz Oranı (%)</label>
             <input type="number" min="0" max="100" step="0.1" value={p.faizOran} onChange={(e: any) => p.setFaizOran(parseFloat(e.target.value))} style={{ padding: '7px 12px', borderRadius: '8px', border: '1px solid #d1d5db', fontSize: '.85rem', width: '100px' }} />
           </div>
           <button onClick={p.faizHesapla} disabled={p.faizYukleniyor} style={{ padding: '7px 16px', background: '#d97706', color: '#fff', border: 'none', borderRadius: '8px', cursor: 'pointer', fontWeight: '700', fontSize: '.85rem' }}>
@@ -1538,6 +1538,9 @@ function DashboardIcerik(p: any) {
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))', gap: '20px' }}>
         <div style={cardStyle}>
           <div style={hdrStyle('#1a3c5e')}>📈 Artış Uygula</div>
+        <div style={{ background: '#fef3c7', border: '1px solid #fcd34d', borderRadius: '8px', padding: '10px 14px', margin: '12px 20px 0', fontSize: '.8rem', color: '#92400e' }}>
+          ⚠️ Bu işlem aidat türlerinin <strong>varsayılan tutarını</strong> günceller. Mevcut tahakkukları etkilemez — yalnızca bundan sonra oluşturulacak tahakkuklara uygulanır.
+        </div>
           <div style={{ padding: '20px' }}>
             {msj(p.artisMesaj)}
             <form onSubmit={p.artisUygula}>
