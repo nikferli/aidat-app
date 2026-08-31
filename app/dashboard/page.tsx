@@ -1462,11 +1462,122 @@ function DashboardIcerik(p: any) {
   if (aktifSayfa === 'yilsonu') return (
     <div>
       <h2 style={{ color: '#1a3c5e', marginBottom: '20px' }}>📈 Yıl Sonu Raporu</h2>
-      <div style={{ background: '#fff', borderRadius: '12px', padding: '16px 20px', marginBottom: '20px', boxShadow: '0 2px 8px rgba(0,0,0,.06)', border: '1px solid #e5e7eb', display: 'flex', gap: '12px' }}>
+      <div style={{ background: '#fff', borderRadius: '12px', padding: '16px 20px', marginBottom: '20px', boxShadow: '0 2px 8px rgba(0,0,0,.06)', border: '1px solid #e5e7eb', display: 'flex', gap: '12px', alignItems: 'center', flexWrap: 'wrap' }}>
         <label style={{ fontWeight: '700', fontSize: '.85rem' }}>Yıl:</label>
         <select value={p.yilsonuYil} onChange={(e: any) => p.setYilsonuYil(parseInt(e.target.value))} style={{ padding: '7px 12px', borderRadius: '8px', border: '1px solid #d1d5db', fontSize: '.85rem' }}>
           {[2024,2025,2026,2027].map(y => <option key={y} value={y}>{y}</option>)}
         </select>
+        {p.yilsonuVeri && (
+          <>
+            <button onClick={() => {
+              const aylar = ['','Ocak','Şubat','Mart','Nisan','Mayıs','Haziran','Temmuz','Ağustos','Eylül','Ekim','Kasım','Aralık']
+              const pf = (n: number) => n.toLocaleString('tr-TR', { minimumFractionDigits: 2 }) + ' ₺'
+
+              // Aylık tablo
+              const aylikRows = Array.from({length:12},(_,i) => i).filter(i => p.yilsonuVeri.aylikOdeme[i] > 0 || p.yilsonuVeri.aylikGider[i] > 0).map(i => ({
+                'Ay': aylar[i+1],
+                'Tahsilat (₺)': p.yilsonuVeri.aylikOdeme[i].toFixed(2),
+                'Gider (₺)': p.yilsonuVeri.aylikGider[i].toFixed(2),
+                'Net (₺)': (p.yilsonuVeri.aylikOdeme[i] - p.yilsonuVeri.aylikGider[i]).toFixed(2),
+              }))
+
+              // Gider kategorileri
+              const kategoriRows = Object.entries(p.yilsonuVeri.kategoriGider).sort(([,a]: any,[,b]: any) => b-a).map(([kat, tutar]: any) => ({
+                'Kategori': kat,
+                'Tutar (₺)': Number(tutar).toFixed(2),
+                'Oran (%)': p.yilsonuVeri.toplamGider > 0 ? Math.round(tutar / p.yilsonuVeri.toplamGider * 100) : 0,
+              }))
+
+              // Özet
+              const ozetRows = [
+                { 'Kalem': 'Toplam Tahakkuk', 'Tutar (₺)': p.yilsonuVeri.toplamTahakkuk.toFixed(2) },
+                { 'Kalem': 'Toplam Tahsilat', 'Tutar (₺)': p.yilsonuVeri.toplamOdeme.toFixed(2) },
+                { 'Kalem': 'Toplam Gider', 'Tutar (₺)': p.yilsonuVeri.toplamGider.toFixed(2) },
+                { 'Kalem': 'Net Durum', 'Tutar (₺)': p.yilsonuVeri.netDurum.toFixed(2) },
+                { 'Kalem': 'Tahsilat Oranı (%)', 'Tutar (₺)': p.yilsonuVeri.tahsilatOrani },
+                { 'Kalem': 'Bütçe Kullanımı (%)', 'Tutar (₺)': p.yilsonuVeri.butceKullanim },
+              ]
+
+              const wb = XLSX.utils.book_new()
+              XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(ozetRows), 'Özet')
+              XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(aylikRows), 'Aylık Detay')
+              XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(kategoriRows), 'Gider Kategorileri')
+              XLSX.writeFile(wb, `yilsonu_raporu_${p.yilsonuYil}.xlsx`)
+            }} style={{ padding: '7px 16px', background: '#16a34a', color: '#fff', border: 'none', borderRadius: '8px', cursor: 'pointer', fontWeight: '700', fontSize: '.85rem' }}>
+              📥 Excel İndir
+            </button>
+            <button onClick={() => {
+              const aylar = ['','Ocak','Şubat','Mart','Nisan','Mayıs','Haziran','Temmuz','Ağustos','Eylül','Ekim','Kasım','Aralık']
+              const pf = (n: number) => n.toLocaleString('tr-TR', { minimumFractionDigits: 2 }) + ' ₺'
+              const html = `<!DOCTYPE html><html lang="tr"><head><meta charset="UTF-8">
+<title>Yıl Sonu Raporu ${p.yilsonuYil}</title>
+<style>
+  body{font-family:'Segoe UI',sans-serif;margin:0;padding:20px;color:#1f2937}
+  .wrap{max-width:900px;margin:0 auto}
+  .header{background:linear-gradient(135deg,#1a3c5e,#2e7d9f);color:#fff;padding:28px 32px;border-radius:12px;margin-bottom:24px}
+  .header h1{margin:0 0 4px;font-size:1.4rem}
+  .header p{margin:0;opacity:.8;font-size:.9rem}
+  .grid{display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin-bottom:24px}
+  .card{background:#f8fafc;border:1px solid #e5e7eb;border-radius:10px;padding:16px;text-align:center}
+  .card .label{color:#6b7280;font-size:.75rem;font-weight:700;text-transform:uppercase;margin-bottom:6px}
+  .card .value{font-size:1.1rem;font-weight:800}
+  h2{color:#1a3c5e;font-size:1rem;margin:24px 0 12px;border-bottom:2px solid #e5e7eb;padding-bottom:8px}
+  table{width:100%;border-collapse:collapse;font-size:.85rem;margin-bottom:24px}
+  th{background:#1a3c5e;color:#fff;padding:10px 14px;text-align:left;font-size:.78rem}
+  td{padding:9px 14px;border-bottom:1px solid #f3f4f6}
+  tr:nth-child(even){background:#f9fafb}
+  .footer{text-align:center;color:#9ca3af;font-size:.78rem;margin-top:32px;border-top:1px solid #e5e7eb;padding-top:16px}
+  .no-print{position:fixed;top:12px;right:16px;display:flex;gap:8px}
+  @media print{.no-print{display:none}@page{size:A4;margin:15mm}}
+</style></head><body>
+<div class="no-print">
+  <button onclick="window.close()" style="padding:7px 16px;background:#e5e7eb;border:none;border-radius:7px;cursor:pointer;font-weight:700">← Geri</button>
+  <button onclick="window.print()" style="padding:7px 16px;background:#1a3c5e;color:#fff;border:none;border-radius:7px;cursor:pointer;font-weight:700">🖨️ Yazdır / PDF</button>
+</div>
+<div class="wrap">
+  <div class="header">
+    <h1>🏢 ${p.yilsonuYil} Yılı — Yıl Sonu Raporu</h1>
+    <p>Oluşturulma: ${new Date().toLocaleDateString('tr-TR', {day:'numeric',month:'long',year:'numeric'})}</p>
+  </div>
+  <div class="grid">
+    <div class="card"><div class="label">Toplam Tahakkuk</div><div class="value" style="color:#1a3c5e">${pf(p.yilsonuVeri.toplamTahakkuk)}</div></div>
+    <div class="card"><div class="label">Toplam Tahsilat</div><div class="value" style="color:#16a34a">${pf(p.yilsonuVeri.toplamOdeme)}</div></div>
+    <div class="card"><div class="label">Toplam Gider</div><div class="value" style="color:#dc2626">${pf(p.yilsonuVeri.toplamGider)}</div></div>
+    <div class="card"><div class="label">Net Durum</div><div class="value" style="color:${p.yilsonuVeri.netDurum>=0?'#16a34a':'#dc2626'}">${pf(p.yilsonuVeri.netDurum)}</div></div>
+    <div class="card"><div class="label">Tahsilat Oranı</div><div class="value" style="color:${p.yilsonuVeri.tahsilatOrani>=90?'#16a34a':'#d97706'}">%${p.yilsonuVeri.tahsilatOrani}</div></div>
+    <div class="card"><div class="label">Bütçe Kullanımı</div><div class="value" style="color:${p.yilsonuVeri.butceKullanim>90?'#dc2626':'#16a34a'}">%${p.yilsonuVeri.butceKullanim}</div></div>
+  </div>
+  <h2>📅 Aylık Tahsilat / Gider</h2>
+  <table>
+    <thead><tr><th>Ay</th><th>Tahsilat</th><th>Gider</th><th>Net</th></tr></thead>
+    <tbody>
+      ${Array.from({length:12},(_,i)=>i).filter(i=>p.yilsonuVeri.aylikOdeme[i]>0||p.yilsonuVeri.aylikGider[i]>0).map(i=>{
+        const t=p.yilsonuVeri.aylikOdeme[i],g=p.yilsonuVeri.aylikGider[i],n=t-g
+        return `<tr><td>${aylar[i+1]}</td><td style="color:#16a34a;font-weight:600">${t>0?pf(t):'—'}</td><td style="color:#dc2626;font-weight:600">${g>0?pf(g):'—'}</td><td style="font-weight:700;color:${n>=0?'#16a34a':'#dc2626'}">${pf(n)}</td></tr>`
+      }).join('')}
+      <tr style="background:#f0f9ff;font-weight:800"><td>TOPLAM</td><td style="color:#16a34a">${pf(p.yilsonuVeri.toplamOdeme)}</td><td style="color:#dc2626">${pf(p.yilsonuVeri.toplamGider)}</td><td style="color:${p.yilsonuVeri.netDurum>=0?'#16a34a':'#dc2626'}">${pf(p.yilsonuVeri.netDurum)}</td></tr>
+    </tbody>
+  </table>
+  <h2>💸 Gider Kategorileri</h2>
+  <table>
+    <thead><tr><th>Kategori</th><th>Tutar</th><th>Oran</th></tr></thead>
+    <tbody>
+      ${Object.entries(p.yilsonuVeri.kategoriGider).sort(([,a]:any,[,b]:any)=>b-a).map(([kat,tutar]:any)=>{
+        const oran=p.yilsonuVeri.toplamGider>0?Math.round(tutar/p.yilsonuVeri.toplamGider*100):0
+        return `<tr><td>${kat}</td><td style="font-weight:700;color:#dc2626">${pf(Number(tutar))}</td><td>%${oran}</td></tr>`
+      }).join('')}
+    </tbody>
+  </table>
+  <div class="footer">Bu rapor otomatik olarak oluşturulmuştur. © ${p.yilsonuYil} Aidat Yönetim Sistemi</div>
+</div>
+</body></html>`
+              const w = window.open('', '_blank')
+              if (w) { w.document.write(html); w.document.close() }
+            }} style={{ padding: '7px 16px', background: '#1a3c5e', color: '#fff', border: 'none', borderRadius: '8px', cursor: 'pointer', fontWeight: '700', fontSize: '.85rem' }}>
+              🖨️ PDF / Yazdır
+            </button>
+          </>
+        )}
       </div>
       {p.yilsonuYukleniyor ? <div style={{ padding: '60px', textAlign: 'center', color: '#6b7280' }}>Hesaplanıyor...</div>
         : p.yilsonuVeri && (
