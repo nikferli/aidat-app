@@ -1,6 +1,7 @@
 'use client'
 
 import { useEffect, useState } from 'react'
+import * as XLSX from 'xlsx'
 import { supabase } from '@/lib/supabase'
 import { useRouter } from 'next/navigation'
 
@@ -746,6 +747,21 @@ function DashboardIcerik(p: any) {
           </select>
         </div>
         <button onClick={p.odemeYenile} style={{ padding: '7px 16px', background: '#1a3c5e', color: '#fff', border: 'none', borderRadius: '8px', cursor: 'pointer', fontSize: '.85rem', fontWeight: '700' }}>🔄 Yenile</button>
+        <button onClick={() => {
+          const fl = p.odemeler.filter((o: any) => { const t = new Date(o.odeme_tarihi); return t.getFullYear() === p.odemeFiltre.yil && (p.odemeFiltre.ay === 0 || t.getMonth() + 1 === p.odemeFiltre.ay) })
+          const ws = XLSX.utils.json_to_sheet(fl.map((o: any) => ({
+            'Blok': o.daire?.bloklar?.blok_adi,
+            'Daire No': o.daire?.daire_no,
+            'Aidat Türü': o.tur?.tur_adi,
+            'Dönem': `${ayAdi(o.tahakkuklar?.donem_ay)} ${o.tahakkuklar?.donem_yil}`,
+            'Ödeme Tarihi': new Date(o.odeme_tarihi).toLocaleDateString('tr-TR'),
+            'Yöntem': o.odeme_yontemi,
+            'Tutar (₺)': Number(o.tutar).toFixed(2),
+          })))
+          const wb = XLSX.utils.book_new()
+          XLSX.utils.book_append_sheet(wb, ws, 'Ödemeler')
+          XLSX.writeFile(wb, `odemeler_${p.odemeFiltre.yil}${p.odemeFiltre.ay > 0 ? '_' + p.odemeFiltre.ay : ''}.xlsx`)
+        }} style={{ padding: '7px 16px', background: '#16a34a', color: '#fff', border: 'none', borderRadius: '8px', cursor: 'pointer', fontSize: '.85rem', fontWeight: '700' }}>📥 Excel İndir</button>
       </div>
       {(() => {
         const fl = p.odemeler.filter((o: any) => { const t = new Date(o.odeme_tarihi); return t.getFullYear() === p.odemeFiltre.yil && (p.odemeFiltre.ay === 0 || t.getMonth() + 1 === p.odemeFiltre.ay) })
@@ -1277,7 +1293,7 @@ function DashboardIcerik(p: any) {
                   <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(130px, 1fr))', gap: '10px', marginBottom: '20px' }}>
                     {[
                       { label: 'Toplam Tahakkuk', deger: paraFormat(p.daireDetayVeri.toplamTahakkuk), renk: '#1a3c5e' },
-                      { label: 'Toplam Ödenen',   deger: paraFormat(p.daireDetayVeri.toplamOdened), renk: '#16a34a' },
+                      { label: 'Toplam Ödenen',   deger: paraFormat(p.daireDetayVeri.toplamOdenen), renk: '#16a34a' },
                       { label: 'Kalan Borç',      deger: paraFormat(p.daireDetayVeri.toplamKalan), renk: p.daireDetayVeri.toplamKalan > 0 ? '#dc2626' : '#16a34a' },
                       { label: 'Tahsilat Oranı',  deger: `%${p.daireDetayVeri.tahsilatOrani}`, renk: p.daireDetayVeri.tahsilatOrani >= 90 ? '#16a34a' : '#d97706' },
                     ].map(k => (
@@ -1387,7 +1403,7 @@ function BorcRaporu({ daireler }: { daireler: any[] }) {
         }))
 
         const toplamTahakkuk = tahakkuklar.reduce((a: number, t: any) => a + Number(t.tutar), 0)
-        const toplamOdenen   = tahakkuklar.reduce((a: number, t: any) => a + t.odened, 0)
+        const toplamOdenen   = tahakkuklar.reduce((a: number, t: any) => a + (odemeMap[t.id] || 0), 0)
         const toplamKalan    = tahakkuklar.reduce((a: number, t: any) => a + t.kalan, 0)
         const gecikmisToplam = tahakkuklar.filter((t: any) => t.durum === 'gecikti').reduce((a: number, t: any) => a + t.kalan, 0)
         const tahsilatOrani  = toplamTahakkuk > 0 ? Math.round(toplamOdenen / toplamTahakkuk * 100) : 100
@@ -1396,7 +1412,7 @@ function BorcRaporu({ daireler }: { daireler: any[] }) {
           daire,
           tahakkuklar,
           toplamTahakkuk,
-          toplamOdened: tahakkuklar.reduce((a: number, t: any) => a + t.odened, 0),
+          toplamOdened: tahakkuklar.reduce((a: number, t: any) => a + (odemeMap[t.id] || 0), 0),
           toplamOdenen: tahakkuklar.reduce((a: number, t: any) => a + (odemeMap[t.id] || 0), 0),
           toplamKalan,
           gecikmisToplam,
@@ -1439,14 +1455,34 @@ function BorcRaporu({ daireler }: { daireler: any[] }) {
         ))}
       </div>
 
-      {/* Filtre */}
-      <div style={{ display: 'flex', gap: '8px', marginBottom: '16px' }}>
+      {/* Filtre + Export */}
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px', flexWrap: 'wrap', gap: '8px' }}>
+        <div style={{ display: 'flex', gap: '8px' }}>
         {[{ value: 'tumu', label: '👥 Tümü' }, { value: 'borclu', label: '⚠️ Borçlular' }, { value: 'gecikti', label: '🔴 Gecikmiş' }].map(f => (
           <button key={f.value} onClick={() => setFiltre(f.value)}
             style={{ padding: '7px 16px', borderRadius: '8px', cursor: 'pointer', fontWeight: '700', fontSize: '.85rem', border: filtre === f.value ? '2px solid #1a3c5e' : '1px solid #d1d5db', background: filtre === f.value ? '#eff6ff' : '#fff', color: filtre === f.value ? '#1a3c5e' : '#6b7280' }}>
             {f.label}
           </button>
         ))}
+        </div>
+        <button onClick={() => {
+          const ws = XLSX.utils.json_to_sheet(filtreli.map((r: any) => ({
+            'Sakin': r.daire.profiller?.ad_soyad,
+            'Blok': r.daire.bloklar?.blok_adi,
+            'Daire No': r.daire.daire_no,
+            'Toplam Tahakkuk (₺)': r.toplamTahakkuk.toFixed(2),
+            'Ödenen (₺)': r.toplamOdenen.toFixed(2),
+            'Kalan Borç (₺)': r.toplamKalan.toFixed(2),
+            'Gecikmiş (₺)': r.gecikmisToplam.toFixed(2),
+            'Tahsilat Oranı (%)': r.tahsilatOrani,
+            'Durum': r.gecikmisToplam > 0 ? 'Gecikmiş' : r.toplamKalan > 0 ? 'Borçlu' : 'Temiz'
+          })))
+          const wb = XLSX.utils.book_new()
+          XLSX.utils.book_append_sheet(wb, ws, 'Borç Raporu')
+          XLSX.writeFile(wb, `borc_raporu_${new Date().toISOString().split('T')[0]}.xlsx`)
+        }} style={{ padding: '7px 16px', background: '#16a34a', color: '#fff', border: 'none', borderRadius: '8px', cursor: 'pointer', fontWeight: '700', fontSize: '.85rem' }}>
+          📥 Excel İndir
+        </button>
       </div>
 
       {/* Tablo */}
