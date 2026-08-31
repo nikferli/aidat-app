@@ -1549,7 +1549,6 @@ function BorcRaporu({ daireler }: { daireler: any[] }) {
           tahakkuklar,
           toplamTahakkuk,
           toplamOdenen: tahakkuklar.reduce((a: number, t: any) => a + (odemeMap[t.id] || 0), 0),
-          toplamOdenen: tahakkuklar.reduce((a: number, t: any) => a + (odemeMap[t.id] || 0), 0),
           toplamKalan,
           gecikmisToplam,
           tahsilatOrani,
