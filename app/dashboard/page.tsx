@@ -528,6 +528,7 @@ export default function Dashboard() {
   { id: 'daire_yonetim', ikon: '🏢', etiket: 'Daire Yönetimi' },
   { id: 'borc_raporu',   ikon: '📊', etiket: 'Borç Raporu' },
   { id: 'banka_import',  ikon: '🏦', etiket: 'Banka Excel Import' },
+  { id: 'yedekleme',     ikon: '💾', etiket: 'Yedekleme' },
   ]
 
   return (
@@ -1883,7 +1884,202 @@ function DashboardIcerik(p: any) {
     <BankaImport daireler={p.daireler} sakinler={p.sakinler} />
   )
 
+  if (aktifSayfa === 'yedekleme') return (
+    <Yedekleme />
+  )
+
   return null
+}
+
+function Yedekleme() {
+  const [yukleniyor, setYukleniyor] = useState<string | null>(null)
+  const [sonuc, setSonuc]           = useState<any>(null)
+
+  const bugun = new Date().toISOString().split('T')[0]
+
+  const tumVeriYedekle = async () => {
+    setYukleniyor('full'); setSonuc(null)
+    try {
+      const [
+        { data: profiller },
+        { data: daireler },
+        { data: bloklar },
+        { data: tahakkuklar },
+        { data: odemeler },
+        { data: odeme_bildirimleri },
+        { data: ariza_talepler },
+        { data: duyurular },
+        { data: giderler },
+        { data: butce },
+        { data: aidat_turleri },
+      ] = await Promise.all([
+        supabase.from('profiller').select('*'),
+        supabase.from('daireler').select('*'),
+        supabase.from('bloklar').select('*'),
+        supabase.from('tahakkuklar').select('*'),
+        supabase.from('odemeler').select('*'),
+        supabase.from('odeme_bildirimleri').select('*'),
+        supabase.from('ariza_talepler').select('*'),
+        supabase.from('duyurular').select('*'),
+        supabase.from('giderler').select('*'),
+        supabase.from('butce').select('*'),
+        supabase.from('aidat_turleri').select('*'),
+      ])
+
+      const yedek = {
+        meta: { tarih: new Date().toISOString(), versiyon: '1.0', aciklama: 'Aidat Yönetim Sistemi Tam Yedek' },
+        profiller, daireler, bloklar, tahakkuklar, odemeler,
+        odeme_bildirimleri, ariza_talepler, duyurular, giderler, butce, aidat_turleri
+      }
+
+      const blob = new Blob([JSON.stringify(yedek, null, 2)], { type: 'application/json' })
+      const url  = URL.createObjectURL(blob)
+      const a    = document.createElement('a')
+      a.href = url; a.download = `aidat_yedek_${bugun}.json`; a.click()
+      URL.revokeObjectURL(url)
+
+      const sayilar = { profiller: profiller?.length || 0, tahakkuklar: tahakkuklar?.length || 0, odemeler: odemeler?.length || 0, giderler: giderler?.length || 0 }
+      setSonuc({ tip: 'basari', metin: `Tam yedek alındı!`, sayilar })
+    } catch (err: any) {
+      setSonuc({ tip: 'hata', metin: 'Yedekleme hatası: ' + err.message })
+    }
+    setYukleniyor(null)
+  }
+
+  const excelYedekle = async () => {
+    setYukleniyor('excel'); setSonuc(null)
+    try {
+      const [
+        { data: profiller },
+        { data: tahakkuklar },
+        { data: odemeler },
+        { data: giderler },
+        { data: daireler },
+        { data: aidat_turleri },
+      ] = await Promise.all([
+        supabase.from('profiller').select('*, daireler(daire_no, bloklar(blok_adi))'),
+        supabase.from('tahakkuklar').select('*, aidat_turleri(tur_adi), daireler(daire_no, bloklar(blok_adi))'),
+        supabase.from('odemeler').select('*, tahakkuklar(donem_yil, donem_ay, aidat_turleri(tur_adi), daireler(daire_no, bloklar(blok_adi)))'),
+        supabase.from('giderler').select('*'),
+        supabase.from('daireler').select('*, bloklar(blok_adi), profiller(ad_soyad)'),
+        supabase.from('aidat_turleri').select('*'),
+      ])
+
+      const aylar = ['','Ocak','Şubat','Mart','Nisan','Mayıs','Haziran','Temmuz','Ağustos','Eylül','Ekim','Kasım','Aralık']
+
+      const sakinlerWs = XLSX.utils.json_to_sheet((profiller || []).filter((p: any) => p.rol === 'sakin').map((p: any) => ({
+        'Ad Soyad': p.ad_soyad, 'E-posta': p.email, 'Telefon': p.telefon || '',
+        'Durum': p.durum, 'Rol': p.rol,
+      })))
+
+      const daireWs = XLSX.utils.json_to_sheet((daireler || []).map((d: any) => ({
+        'Blok': (d.bloklar as any)?.blok_adi, 'Daire No': d.daire_no, 'Kat': d.kat || '',
+        'Durum': d.durum, 'Sakin': (d.profiller as any)?.ad_soyad || '', 'Not': d.sabit_not || '',
+      })))
+
+      const tahakkukWs = XLSX.utils.json_to_sheet((tahakkuklar || []).map((t: any) => ({
+        'Blok': (t.daireler as any)?.bloklar?.blok_adi, 'Daire': (t.daireler as any)?.daire_no,
+        'Aidat Türü': t.aidat_turleri?.tur_adi,
+        'Dönem': `${aylar[t.donem_ay]} ${t.donem_yil}`,
+        'Tutar (₺)': Number(t.tutar).toFixed(2),
+        'Son Ödeme': t.son_odeme_tarihi || '', 'Durum': t.durum,
+      })))
+
+      const odemeWs = XLSX.utils.json_to_sheet((odemeler || []).map((o: any) => ({
+        'Blok': (o.tahakkuklar as any)?.daireler?.bloklar?.blok_adi,
+        'Daire': (o.tahakkuklar as any)?.daireler?.daire_no,
+        'Aidat Türü': (o.tahakkuklar as any)?.aidat_turleri?.tur_adi,
+        'Dönem': `${aylar[(o.tahakkuklar as any)?.donem_ay]} ${(o.tahakkuklar as any)?.donem_yil}`,
+        'Ödeme Tarihi': o.odeme_tarihi, 'Tutar (₺)': Number(o.tutar).toFixed(2),
+        'Yöntem': o.odeme_yontemi, 'Açıklama': o.aciklama || '',
+      })))
+
+      const giderWs = XLSX.utils.json_to_sheet((giderler || []).map((g: any) => ({
+        'Tarih': g.gider_tarihi, 'Kategori': g.kategori, 'Açıklama': g.aciklama || '',
+        'Tutar (₺)': Number(g.tutar).toFixed(2), 'Belge No': g.belge_no || '',
+      })))
+
+      const wb = XLSX.utils.book_new()
+      XLSX.utils.book_append_sheet(wb, sakinlerWs, 'Sakinler')
+      XLSX.utils.book_append_sheet(wb, daireWs, 'Daireler')
+      XLSX.utils.book_append_sheet(wb, tahakkukWs, 'Tahakkuklar')
+      XLSX.utils.book_append_sheet(wb, odemeWs, 'Ödemeler')
+      XLSX.utils.book_append_sheet(wb, giderWs, 'Giderler')
+      XLSX.writeFile(wb, `aidat_yedek_${bugun}.xlsx`)
+
+      setSonuc({ tip: 'basari', metin: 'Excel yedeği alındı! 5 sayfa: Sakinler, Daireler, Tahakkuklar, Ödemeler, Giderler.' })
+    } catch (err: any) {
+      setSonuc({ tip: 'hata', metin: 'Excel hatası: ' + err.message })
+    }
+    setYukleniyor(null)
+  }
+
+  return (
+    <div>
+      <h2 style={{ color: '#1a3c5e', marginBottom: '20px' }}>💾 Yedekleme</h2>
+
+      {sonuc && (
+        <div style={{ background: sonuc.tip === 'basari' ? '#dcfce7' : '#fee2e2', color: sonuc.tip === 'basari' ? '#166534' : '#991b1b', borderRadius: '10px', padding: '14px 20px', marginBottom: '20px', fontWeight: '600' }}>
+          {sonuc.metin}
+          {sonuc.sayilar && (
+            <div style={{ marginTop: '8px', fontSize: '.82rem', fontWeight: '400' }}>
+              👥 {sonuc.sayilar.profiller} sakin · 📋 {sonuc.sayilar.tahakkuklar} tahakkuk · 💰 {sonuc.sayilar.odemeler} ödeme · 💸 {sonuc.sayilar.giderler} gider
+            </div>
+          )}
+        </div>
+      )}
+
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: '20px', marginBottom: '24px' }}>
+        {/* JSON Yedek */}
+        <div style={{ background: '#fff', borderRadius: '12px', boxShadow: '0 2px 8px rgba(0,0,0,.06)', border: '1px solid #e5e7eb', overflow: 'hidden' }}>
+          <div style={{ background: '#1a3c5e', color: '#fff', padding: '14px 20px', fontWeight: '700' }}>📦 Tam Veri Yedeği (JSON)</div>
+          <div style={{ padding: '20px' }}>
+            <p style={{ color: '#6b7280', fontSize: '.85rem', marginTop: 0 }}>Tüm tabloların ham verisi JSON formatında indirilir. Geri yükleme için kullanılabilir.</p>
+            <div style={{ background: '#f8fafc', borderRadius: '8px', padding: '12px', marginBottom: '16px', fontSize: '.8rem', color: '#374151' }}>
+              <div>✅ Profiller, Daireler, Bloklar</div>
+              <div>✅ Tahakkuklar, Ödemeler</div>
+              <div>✅ Giderler, Bütçe, Duyurular</div>
+              <div>✅ Arıza Talepler, Bildirimler</div>
+            </div>
+            <button onClick={tumVeriYedekle} disabled={yukleniyor !== null}
+              style={{ width: '100%', padding: '11px', background: yukleniyor === 'full' ? '#9ca3af' : '#1a3c5e', color: '#fff', border: 'none', borderRadius: '10px', cursor: 'pointer', fontWeight: '700', fontSize: '.9rem' }}>
+              {yukleniyor === 'full' ? '⏳ Hazırlanıyor...' : '📥 JSON Yedek Al'}
+            </button>
+          </div>
+        </div>
+
+        {/* Excel Yedek */}
+        <div style={{ background: '#fff', borderRadius: '12px', boxShadow: '0 2px 8px rgba(0,0,0,.06)', border: '1px solid #e5e7eb', overflow: 'hidden' }}>
+          <div style={{ background: '#16a34a', color: '#fff', padding: '14px 20px', fontWeight: '700' }}>📊 Excel Yedeği</div>
+          <div style={{ padding: '20px' }}>
+            <p style={{ color: '#6b7280', fontSize: '.85rem', marginTop: 0 }}>Tüm veriler okunabilir Excel formatında, ayrı sayfalarda indirilir.</p>
+            <div style={{ background: '#f8fafc', borderRadius: '8px', padding: '12px', marginBottom: '16px', fontSize: '.8rem', color: '#374151' }}>
+              <div>✅ Sakinler listesi</div>
+              <div>✅ Daireler ve doluluk</div>
+              <div>✅ Tüm tahakkuklar</div>
+              <div>✅ Tüm ödemeler</div>
+              <div>✅ Tüm giderler</div>
+            </div>
+            <button onClick={excelYedekle} disabled={yukleniyor !== null}
+              style={{ width: '100%', padding: '11px', background: yukleniyor === 'excel' ? '#9ca3af' : '#16a34a', color: '#fff', border: 'none', borderRadius: '10px', cursor: 'pointer', fontWeight: '700', fontSize: '.9rem' }}>
+              {yukleniyor === 'excel' ? '⏳ Hazırlanıyor...' : '📥 Excel Yedek Al'}
+            </button>
+          </div>
+        </div>
+      </div>
+
+      {/* Bilgi Notu */}
+      <div style={{ background: '#eff6ff', border: '1px solid #bfdbfe', borderRadius: '12px', padding: '16px 20px' }}>
+        <div style={{ fontWeight: '700', color: '#1e40af', marginBottom: '8px' }}>ℹ️ Yedekleme Hakkında</div>
+        <div style={{ color: '#1e3a8a', fontSize: '.85rem', lineHeight: 1.7 }}>
+          <div>• <strong>JSON yedeği</strong> — tüm ham veriyi içerir, teknik geri yükleme için idealdir.</div>
+          <div>• <strong>Excel yedeği</strong> — okunabilir format, arşiv veya muhasebe için uygundur.</div>
+          <div>• Supabase Dashboard → Settings → Database → Backups üzerinden de otomatik yedek alınmaktadır.</div>
+          <div>• Düzenli yedek almanız önerilir — özellikle tahakkuk ve ödeme işlemlerinden önce.</div>
+        </div>
+      </div>
+    </div>
+  )
 }
 
 function BankaImport({ daireler, sakinler }: { daireler: any[], sakinler: any[] }) {
