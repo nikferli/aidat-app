@@ -244,12 +244,13 @@ function ArizaBildir({ daireId, kullaniciId }: { daireId: number, kullaniciId: s
 }
 
 function OdemeBildir({ daireId }: { daireId: number }) {
-  const [tahakkuklar, setTahakkuklar] = useState<any[]>([])
-  const [gecmis, setGecmis] = useState<any[]>([])
-  const [yukleniyor, setYukleniyor] = useState(true)
+  const [tahakkuklar, setTahakkuklar]   = useState<any[]>([])
+  const [gecmis, setGecmis]             = useState<any[]>([])
+  const [yukleniyor, setYukleniyor]     = useState(true)
   const [gonderiliyor, setGonderiliyor] = useState(false)
-  const [mesaj, setMesaj] = useState<any>(null)
-  const [form, setForm] = useState({ tahakkuk_id: '', tutar: '', odeme_tarihi: new Date().toISOString().split('T')[0], odeme_yontemi: 'havale', aciklama: '' })
+  const [mesaj, setMesaj]               = useState<any>(null)
+  const [seciliIds, setSeciliIds]       = useState<Set<number>>(new Set())
+  const [odemeForm, setOdemeForm]       = useState({ odeme_tarihi: new Date().toISOString().split('T')[0], odeme_yontemi: 'havale', aciklama: '' })
 
   useEffect(() => {
     if (!daireId) return
@@ -263,23 +264,40 @@ function OdemeBildir({ daireId }: { daireId: number }) {
     yukle()
   }, [daireId])
 
-  const turSec = (id: string) => {
-    const th = tahakkuklar.find(t => t.id === parseInt(id))
-    setForm(f => ({ ...f, tahakkuk_id: id, tutar: th ? String(th.tutar) : '' }))
+  const toggleSec = (id: number) => {
+    setSeciliIds(prev => { const s = new Set(prev); s.has(id) ? s.delete(id) : s.add(id); return s })
   }
+
+  const tumunuSec = () => {
+    if (seciliIds.size === tahakkuklar.length) setSeciliIds(new Set())
+    else setSeciliIds(new Set(tahakkuklar.map(t => t.id)))
+  }
+
+  const seciliToplam = tahakkuklar.filter(t => seciliIds.has(t.id)).reduce((acc, t) => acc + Number(t.tutar), 0)
 
   const gonder = async (e: React.FormEvent) => {
     e.preventDefault()
-    if (!form.tahakkuk_id) { setMesaj({ tip: 'hata', metin: 'Lütfen borç seçin.' }); return }
+    if (seciliIds.size === 0) { setMesaj({ tip: 'hata', metin: 'Lütfen en az bir borç seçin.' }); return }
     setGonderiliyor(true); setMesaj(null)
     const { data: { session } } = await supabase.auth.getSession()
-    const { error } = await supabase.from('odeme_bildirimleri').insert({ kullanici_id: session?.user.id, daire_id: daireId, tahakkuk_id: parseInt(form.tahakkuk_id), tutar: parseFloat(form.tutar), odeme_tarihi: form.odeme_tarihi, odeme_yontemi: form.odeme_yontemi, aciklama: form.aciklama, durum: 'bekliyor' })
-    if (error) { setMesaj({ tip: 'hata', metin: 'Gönderilemedi: ' + error.message }) }
-    else {
-      setMesaj({ tip: 'basari', metin: 'Bildiriminiz yöneticiye iletildi.' })
-      setForm(f => ({ ...f, tahakkuk_id: '', tutar: '', aciklama: '' }))
+    let basarili = 0, hata = 0
+    for (const tahakkukId of Array.from(seciliIds)) {
+      const th = tahakkuklar.find(t => t.id === tahakkukId)
+      if (!th) continue
+      const { error } = await supabase.from('odeme_bildirimleri').insert({
+        kullanici_id: session?.user.id, daire_id: daireId, tahakkuk_id: tahakkukId,
+        tutar: Number(th.tutar), odeme_tarihi: odemeForm.odeme_tarihi,
+        odeme_yontemi: odemeForm.odeme_yontemi, aciklama: odemeForm.aciklama, durum: 'bekliyor'
+      })
+      if (error) hata++; else basarili++
+    }
+    if (basarili > 0) {
+      setMesaj({ tip: 'basari', metin: `${basarili} borç için ödeme bildirimi yöneticiye iletildi.` })
+      setSeciliIds(new Set())
       const { data: gb } = await supabase.from('odeme_bildirimleri').select('*, tahakkuklar(donem_yil, donem_ay, aidat_turleri(tur_adi))').eq('daire_id', daireId).order('olusturma', { ascending: false }).limit(10)
       setGecmis(gb || [])
+    } else {
+      setMesaj({ tip: 'hata', metin: 'Gönderim sırasında hata oluştu.' })
     }
     setGonderiliyor(false)
   }
@@ -317,33 +335,56 @@ function OdemeBildir({ daireId }: { daireId: number }) {
             {mesaj && <div style={{ background: mesaj.tip === 'basari' ? '#dcfce7' : '#fee2e2', color: mesaj.tip === 'basari' ? '#166534' : '#991b1b', borderRadius: '8px', padding: '12px', marginBottom: '16px', fontSize: '.85rem', fontWeight: '600' }}>{mesaj.metin}</div>}
             {tahakkuklar.length === 0 ? <div style={{ textAlign: 'center', color: '#16a34a', padding: '24px', fontWeight: '700' }}>✅ Açık borç yok!</div> : (
               <form onSubmit={gonder}>
+                {/* Borç Seçimi */}
                 <div style={{ marginBottom: '14px' }}>
-                  <label style={{ display: 'block', fontWeight: '700', fontSize: '.82rem', color: '#374151', marginBottom: '6px' }}>Hangi Borç?</label>
-                  <select value={form.tahakkuk_id} onChange={e => turSec(e.target.value)} required style={{ width: '100%', padding: '9px 12px', borderRadius: '8px', border: '1px solid #d1d5db', fontSize: '.85rem' }}>
-                    <option value="">-- Seçin --</option>
-                    {tahakkuklar.map(t => <option key={t.id} value={t.id}>{t.aidat_turleri?.tur_adi} — {ayAdi(t.donem_ay)} {t.donem_yil} — {paraFormat(Number(t.tutar))}</option>)}
-                  </select>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
+                    <label style={{ fontWeight: '700', fontSize: '.82rem', color: '#374151' }}>Hangi Borçları Ödedim?</label>
+                    <button type="button" onClick={tumunuSec} style={{ background: '#eff6ff', color: '#1a3c5e', border: '1px solid #bfdbfe', borderRadius: '6px', padding: '3px 10px', cursor: 'pointer', fontSize: '.75rem', fontWeight: '700' }}>
+                      {seciliIds.size === tahakkuklar.length ? '✕ Seçimi Kaldır' : '✓ Tümünü Seç'}
+                    </button>
+                  </div>
+                  <div style={{ border: '1px solid #e5e7eb', borderRadius: '10px', overflow: 'hidden' }}>
+                    {tahakkuklar.map((t, i) => (
+                      <div key={t.id} onClick={() => toggleSec(t.id)}
+                        style={{ padding: '10px 14px', borderBottom: i < tahakkuklar.length - 1 ? '1px solid #f3f4f6' : 'none', display: 'flex', alignItems: 'center', gap: '12px', cursor: 'pointer', background: seciliIds.has(t.id) ? '#eff6ff' : '#fff', transition: 'background .15s' }}>
+                        <div style={{ width: '20px', height: '20px', borderRadius: '6px', border: `2px solid ${seciliIds.has(t.id) ? '#1a3c5e' : '#d1d5db'}`, background: seciliIds.has(t.id) ? '#1a3c5e' : '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                          {seciliIds.has(t.id) && <span style={{ color: '#fff', fontSize: '.7rem', fontWeight: '800' }}>✓</span>}
+                        </div>
+                        <div style={{ flex: 1 }}>
+                          <div style={{ fontWeight: '600', fontSize: '.85rem', color: '#374151' }}>{t.aidat_turleri?.tur_adi}</div>
+                          <div style={{ color: '#6b7280', fontSize: '.75rem' }}>{ayAdi(t.donem_ay)} {t.donem_yil}{t.durum === 'gecikti' ? ' · ⚠️ Gecikmiş' : ''}</div>
+                        </div>
+                        <div style={{ fontWeight: '800', color: t.durum === 'gecikti' ? '#dc2626' : '#374151', fontSize: '.9rem' }}>{paraFormat(Number(t.tutar))}</div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+
+                {/* Seçili Toplam */}
+                {seciliIds.size > 0 && (
+                  <div style={{ background: '#f0fdf4', border: '1px solid #86efac', borderRadius: '8px', padding: '10px 14px', marginBottom: '14px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                    <span style={{ color: '#166534', fontSize: '.85rem', fontWeight: '600' }}>{seciliIds.size} borç seçildi</span>
+                    <span style={{ color: '#166534', fontWeight: '800', fontSize: '1rem' }}>{paraFormat(seciliToplam)}</span>
+                  </div>
+                )}
+
+                <div style={{ marginBottom: '14px' }}>
+                  <label style={{ display: 'block', fontWeight: '700', fontSize: '.82rem', color: '#374151', marginBottom: '6px' }}>Ödeme Tarihi</label>
+                  <input type="date" required value={odemeForm.odeme_tarihi} onChange={e => setOdemeForm(f => ({ ...f, odeme_tarihi: e.target.value }))} style={{ width: '100%', padding: '9px 12px', borderRadius: '8px', border: '1px solid #d1d5db', fontSize: '.85rem', boxSizing: 'border-box' }} />
                 </div>
                 <div style={{ marginBottom: '14px' }}>
-                  <label style={{ display: 'block', fontWeight: '700', fontSize: '.82rem', color: '#374151', marginBottom: '6px' }}>Tutar (₺)</label>
-                  <input type="number" step="0.01" required value={form.tutar} onChange={e => setForm(f => ({ ...f, tutar: e.target.value }))} style={{ width: '100%', padding: '9px 12px', borderRadius: '8px', border: '1px solid #d1d5db', fontSize: '.85rem', boxSizing: 'border-box' }} />
-                </div>
-                <div style={{ marginBottom: '14px' }}>
-                  <label style={{ display: 'block', fontWeight: '700', fontSize: '.82rem', color: '#374151', marginBottom: '6px' }}>Tarih</label>
-                  <input type="date" required value={form.odeme_tarihi} onChange={e => setForm(f => ({ ...f, odeme_tarihi: e.target.value }))} style={{ width: '100%', padding: '9px 12px', borderRadius: '8px', border: '1px solid #d1d5db', fontSize: '.85rem', boxSizing: 'border-box' }} />
-                </div>
-                <div style={{ marginBottom: '14px' }}>
-                  <label style={{ display: 'block', fontWeight: '700', fontSize: '.82rem', color: '#374151', marginBottom: '6px' }}>Yöntem</label>
-                  <select value={form.odeme_yontemi} onChange={e => setForm(f => ({ ...f, odeme_yontemi: e.target.value }))} style={{ width: '100%', padding: '9px 12px', borderRadius: '8px', border: '1px solid #d1d5db', fontSize: '.85rem' }}>
+                  <label style={{ display: 'block', fontWeight: '700', fontSize: '.82rem', color: '#374151', marginBottom: '6px' }}>Ödeme Yöntemi</label>
+                  <select value={odemeForm.odeme_yontemi} onChange={e => setOdemeForm(f => ({ ...f, odeme_yontemi: e.target.value }))} style={{ width: '100%', padding: '9px 12px', borderRadius: '8px', border: '1px solid #d1d5db', fontSize: '.85rem' }}>
                     <option value="havale">Havale</option><option value="eft">EFT</option><option value="nakit">Nakit</option><option value="kredi_karti">Kredi Kartı</option><option value="diger">Diğer</option>
                   </select>
                 </div>
                 <div style={{ marginBottom: '20px' }}>
                   <label style={{ display: 'block', fontWeight: '700', fontSize: '.82rem', color: '#374151', marginBottom: '6px' }}>Açıklama <span style={{ color: '#9ca3af', fontWeight: '400' }}>(opsiyonel)</span></label>
-                  <textarea rows={2} value={form.aciklama} onChange={e => setForm(f => ({ ...f, aciklama: e.target.value }))} style={{ width: '100%', padding: '9px 12px', borderRadius: '8px', border: '1px solid #d1d5db', fontSize: '.85rem', boxSizing: 'border-box', resize: 'vertical' }} />
+                  <textarea rows={2} value={odemeForm.aciklama} onChange={e => setOdemeForm(f => ({ ...f, aciklama: e.target.value }))} style={{ width: '100%', padding: '9px 12px', borderRadius: '8px', border: '1px solid #d1d5db', fontSize: '.85rem', boxSizing: 'border-box', resize: 'vertical' }} />
                 </div>
-                <button type="submit" disabled={gonderiliyor} style={{ width: '100%', padding: '11px', background: gonderiliyor ? '#9ca3af' : '#1a3c5e', color: '#fff', border: 'none', borderRadius: '10px', fontSize: '.9rem', fontWeight: '700', cursor: 'pointer' }}>
-                  {gonderiliyor ? 'Gönderiliyor...' : '✉️ Gönder'}
+                <button type="submit" disabled={gonderiliyor || seciliIds.size === 0}
+                  style={{ width: '100%', padding: '11px', background: gonderiliyor || seciliIds.size === 0 ? '#9ca3af' : '#1a3c5e', color: '#fff', border: 'none', borderRadius: '10px', fontSize: '.9rem', fontWeight: '700', cursor: seciliIds.size === 0 ? 'not-allowed' : 'pointer' }}>
+                  {gonderiliyor ? 'Gönderiliyor...' : seciliIds.size === 0 ? 'Borç Seçin' : `✉️ ${seciliIds.size} Borç İçin Bildir (${paraFormat(seciliToplam)})`}
                 </button>
               </form>
             )}
