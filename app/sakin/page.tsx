@@ -782,12 +782,15 @@ export default function SakinPanel() {
             ) : (
               <>
                 <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(130px, 1fr))', gap: '12px', marginBottom: '20px' }}>
-                  {[{ etiket: 'Ana Borç', deger: toplamAna, renk: '#dc2626' }, { etiket: 'Gecikme Faizi', deger: toplamFaiz, renk: '#d97706' }, { etiket: 'Genel Toplam', deger: toplamAna + toplamFaiz, renk: '#1a3c5e' }].map(k => (
+                  {[{ etiket: 'Ana Borç', deger: toplamAna, renk: '#dc2626' }, { etiket: 'Tahmini Faiz', deger: toplamFaiz, renk: '#d97706' }, { etiket: 'Toplam (Tahmini)', deger: toplamAna + toplamFaiz, renk: '#1a3c5e' }].map(k => (
                     <div key={k.etiket} style={{ background: '#fff', borderRadius: '12px', padding: '16px', boxShadow: '0 2px 8px rgba(0,0,0,.06)', border: '1px solid #e5e7eb', textAlign: 'center' }}>
                       <div style={{ color: '#6b7280', fontSize: '.72rem', fontWeight: '700', textTransform: 'uppercase', marginBottom: '4px' }}>{k.etiket}</div>
                       <div style={{ fontSize: '1.1rem', fontWeight: '800', color: k.renk }}>{paraFormat(k.deger)}</div>
                     </div>
                   ))}
+                </div>
+                <div style={{ background: '#fef3c7', border: '1px solid #fcd34d', borderRadius: '8px', padding: '10px 14px', marginBottom: '12px', fontSize: '.78rem', color: '#92400e' }}>
+                  ⚠️ Gösterilen faiz <strong>tahmini</strong> olup yönetici tarafından ayrıca tahakkuk edildiğinde kesinleşir.
                 </div>
                 <div style={{ background: '#fff', borderRadius: '12px', boxShadow: '0 2px 8px rgba(0,0,0,.06)', border: '1px solid #e5e7eb', overflow: 'hidden' }}>
                   <div style={{ background: '#dc2626', color: '#fff', padding: '12px 20px', fontWeight: '700' }}>📋 Bekleyen Borçlarım</div>
