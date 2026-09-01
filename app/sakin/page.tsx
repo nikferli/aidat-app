@@ -695,9 +695,14 @@ function usePushNotification(kullaniciId: string | null) {
     if (!('serviceWorker' in navigator) || !('PushManager' in window)) {
       setBildirimDurumu('desteklenmiyor'); return
     }
-    if (Notification.permission === 'granted') setBildirimDurumu('aktif')
-    else if (Notification.permission === 'denied') setBildirimDurumu('pasif')
-    else setBildirimDurumu('izin_bekliyor')
+    // Gerçek subscription var mı kontrol et
+    navigator.serviceWorker.ready.then(reg => {
+      reg.pushManager.getSubscription().then(sub => {
+        if (sub && Notification.permission === 'granted') setBildirimDurumu('aktif')
+        else if (Notification.permission === 'denied') setBildirimDurumu('pasif')
+        else setBildirimDurumu('izin_bekliyor')
+      })
+    })
   }, [kullaniciId])
 
   const bildirimiAc = async () => {
@@ -706,10 +711,20 @@ function usePushNotification(kullaniciId: string | null) {
       const izin = await Notification.requestPermission()
       if (izin !== 'granted') { setBildirimDurumu('pasif'); return }
 
+      const vapidKey = process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY
+      if (!vapidKey) { console.error('VAPID key bulunamadı'); return }
+
+      // Base64 string'i Uint8Array'e çevir
+      const padding = '='.repeat((4 - vapidKey.length % 4) % 4)
+      const base64 = (vapidKey + padding).replace(/-/g, '+').replace(/_/g, '/')
+      const rawData = window.atob(base64)
+      const outputArray = new Uint8Array(rawData.length)
+      for (let i = 0; i < rawData.length; ++i) outputArray[i] = rawData.charCodeAt(i)
+
       const reg = await navigator.serviceWorker.ready
       const sub = await reg.pushManager.subscribe({
         userVisibleOnly: true,
-        applicationServerKey: process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY
+        applicationServerKey: outputArray
       })
 
       await fetch('/api/push-subscribe', {
