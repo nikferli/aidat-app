@@ -687,6 +687,61 @@ function Ekstre({ daireId, kullanici }: { daireId: number, kullanici: any }) {
   )
 }
 
+function usePushNotification(kullaniciId: string | null) {
+  const [bildirimDurumu, setBildirimDurumu] = useState<'desteklenmiyor' | 'izin_bekliyor' | 'aktif' | 'pasif'>('pasif')
+
+  useEffect(() => {
+    if (!kullaniciId) return
+    if (!('serviceWorker' in navigator) || !('PushManager' in window)) {
+      setBildirimDurumu('desteklenmiyor'); return
+    }
+    if (Notification.permission === 'granted') setBildirimDurumu('aktif')
+    else if (Notification.permission === 'denied') setBildirimDurumu('pasif')
+    else setBildirimDurumu('izin_bekliyor')
+  }, [kullaniciId])
+
+  const bildirimiAc = async () => {
+    if (!kullaniciId) return
+    try {
+      const izin = await Notification.requestPermission()
+      if (izin !== 'granted') { setBildirimDurumu('pasif'); return }
+
+      const reg = await navigator.serviceWorker.ready
+      const sub = await reg.pushManager.subscribe({
+        userVisibleOnly: true,
+        applicationServerKey: process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY
+      })
+
+      await fetch('/api/push-subscribe', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ kullanici_id: kullaniciId, subscription: sub.toJSON() })
+      })
+      setBildirimDurumu('aktif')
+    } catch (err) {
+      console.error('Push subscription hatası:', err)
+      setBildirimDurumu('pasif')
+    }
+  }
+
+  const bildirimiKapat = async () => {
+    if (!kullaniciId) return
+    try {
+      const reg = await navigator.serviceWorker.ready
+      const sub = await reg.pushManager.getSubscription()
+      if (sub) await sub.unsubscribe()
+      await fetch('/api/push-subscribe', {
+        method: 'DELETE', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ kullanici_id: kullaniciId })
+      })
+      setBildirimDurumu('izin_bekliyor')
+    } catch (err) {
+      console.error('Push unsubscribe hatası:', err)
+    }
+  }
+
+  return { bildirimDurumu, bildirimiAc, bildirimiKapat }
+}
+
 export default function SakinPanel() {
   const [kullanici, setKullanici]     = useState<any>(null)
   const [daire, setDaire]             = useState<any>(null)
@@ -696,6 +751,14 @@ export default function SakinPanel() {
   const [aktifSayfa, setAktifSayfa]   = useState('borclarim')
   const [menuAcik, setMenuAcik]       = useState(false)
   const router = useRouter()
+  const { bildirimDurumu, bildirimiAc, bildirimiKapat } = usePushNotification(kullanici?.id || null)
+
+  // Service Worker kayıt
+  useEffect(() => {
+    if ('serviceWorker' in navigator) {
+      navigator.serviceWorker.register('/sw.js').catch(err => console.error('SW kayıt hatası:', err))
+    }
+  }, [])
 
   useEffect(() => {
     const yukle = async () => {
@@ -756,6 +819,13 @@ export default function SakinPanel() {
             <img src={kullanici.avatar_url} alt="" style={{ width: '32px', height: '32px', borderRadius: '50%', objectFit: 'cover', border: '2px solid rgba(255,255,255,.3)' }} />
           ) : null}
           <span style={{ fontSize: '.8rem', opacity: .8 }}>👤 {kullanici?.ad_soyad?.split(' ')[0]}</span>
+          {bildirimDurumu !== 'desteklenmiyor' && (
+            <button onClick={bildirimDurumu === 'aktif' ? bildirimiKapat : bildirimiAc}
+              title={bildirimDurumu === 'aktif' ? 'Bildirimleri Kapat' : 'Bildirimleri Aç'}
+              style={{ background: 'rgba(255,255,255,.15)', border: '1px solid rgba(255,255,255,.3)', color: '#fff', padding: '5px 8px', borderRadius: '8px', cursor: 'pointer', fontSize: '.9rem' }}>
+              {bildirimDurumu === 'aktif' ? '🔔' : '🔕'}
+            </button>
+          )}
           <button onClick={cikisYap} style={{ background: 'rgba(255,255,255,.15)', border: '1px solid rgba(255,255,255,.3)', color: '#fff', padding: '5px 10px', borderRadius: '8px', cursor: 'pointer', fontSize: '.78rem' }}>Çıkış</button>
         </div>
       </div>

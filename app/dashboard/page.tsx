@@ -1287,7 +1287,17 @@ function DashboardIcerik(p: any) {
           </div>
         </div>
         <div style={cardStyle}>
-          <div style={hdrStyle('#374151')}>📋 Yayınlanan ({p.duyurular.length})</div>
+          <div style={{ background: '#374151', color: '#fff', padding: '12px 20px', fontWeight: '700', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+          <span>📋 Yayınlanan ({p.duyurular.length})</span>
+          <button onClick={async () => {
+            if (!confirm('Tüm sakinlere push bildirim gönderilsin mi?')) return
+            const res = await fetch('/api/push-send', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ herkese: true, title: '📢 Yeni Duyuru', body: 'Aidat sisteminizde yeni bir duyuru var.', url: '/sakin' }) })
+            const d = await res.json()
+            alert(`${d.gonderilen} sakine bildirim gönderildi!`)
+          }} style={{ background: '#f0a500', color: '#fff', border: 'none', borderRadius: '8px', padding: '5px 12px', cursor: 'pointer', fontSize: '.78rem', fontWeight: '700' }}>
+            🔔 Push Gönder
+          </button>
+        </div>
           {p.duyurular.length === 0 ? <div style={{ padding: '32px', textAlign: 'center', color: '#9ca3af' }}>Henüz duyuru yok.</div>
             : p.duyurular.map((d: any, i: number) => (
               <div key={d.id} style={{ padding: '14px 20px', borderBottom: i < p.duyurular.length - 1 ? '1px solid #f3f4f6' : 'none' }}>
