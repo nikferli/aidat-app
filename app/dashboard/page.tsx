@@ -1184,25 +1184,64 @@ function DashboardIcerik(p: any) {
   if (aktifSayfa === 'bildirimler') return (
     <div>
       <h2 style={{ color: '#1a3c5e', marginBottom: '20px' }}>✉️ Bekleyen Ödeme Bildirimleri</h2>
-      {p.bildirimler.length === 0 ? <div style={{ background: '#dcfce7', border: '1px solid #86efac', borderRadius: '12px', padding: '32px', textAlign: 'center', color: '#166534', fontWeight: '700' }}>✅ Bekleyen bildirim yok!</div>
-        : p.bildirimler.map((b: any) => (
-          <div key={b.id} style={{ background: '#fff', borderRadius: '12px', padding: '20px', marginBottom: '12px', boxShadow: '0 2px 8px rgba(0,0,0,.06)', border: '1px solid #e5e7eb' }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: '12px' }}>
-              <div>
-                <div style={{ fontWeight: '700', color: '#374151', marginBottom: '4px' }}>{b.profiller?.ad_soyad}</div>
-                <div style={{ color: '#6b7280', fontSize: '.85rem' }}>{b.tahakkuklar?.aidat_turleri?.tur_adi} — {ayAdi(b.tahakkuklar?.donem_ay)} {b.tahakkuklar?.donem_yil}</div>
-                <div style={{ color: '#6b7280', fontSize: '.8rem' }}>Yöntem: {b.odeme_yontemi} | {new Date(b.odeme_tarihi).toLocaleDateString('tr-TR')}</div>
-              </div>
-              <div style={{ textAlign: 'right' }}>
-                <div style={{ fontWeight: '800', fontSize: '1.2rem', color: '#16a34a', marginBottom: '8px' }}>{paraFormat(Number(b.tutar))}</div>
+      {p.bildirimler.length === 0 ? (
+        <div style={{ background: '#dcfce7', border: '1px solid #86efac', borderRadius: '12px', padding: '32px', textAlign: 'center', color: '#166534', fontWeight: '700' }}>✅ Bekleyen bildirim yok!</div>
+      ) : (() => {
+        // Sakin bazlı grupla
+        const gruplar: any = {}
+        p.bildirimler.forEach((b: any) => {
+          const key = b.kullanici_id
+          if (!gruplar[key]) gruplar[key] = { sakin: b.profiller, bildirimler: [] }
+          gruplar[key].bildirimler.push(b)
+        })
+        return Object.values(gruplar).map((grup: any) => {
+          const toplam = grup.bildirimler.reduce((acc: number, b: any) => acc + Number(b.tutar), 0)
+          return (
+            <div key={grup.sakin?.id} style={{ background: '#fff', borderRadius: '12px', marginBottom: '16px', boxShadow: '0 2px 8px rgba(0,0,0,.06)', border: '1px solid #e5e7eb', overflow: 'hidden' }}>
+              {/* Sakin Başlık */}
+              <div style={{ background: '#f8fafc', padding: '14px 20px', borderBottom: '1px solid #e5e7eb', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '12px' }}>
+                <div>
+                  <div style={{ fontWeight: '800', color: '#1a3c5e', fontSize: '1rem' }}>👤 {grup.sakin?.ad_soyad}</div>
+                  <div style={{ color: '#6b7280', fontSize: '.78rem' }}>{grup.bildirimler.length} bildirim · Toplam: <strong style={{ color: '#16a34a' }}>{paraFormat(toplam)}</strong></div>
+                </div>
                 <div style={{ display: 'flex', gap: '8px' }}>
-                  <button onClick={() => p.bildirimOnayla(b.id, b.tahakkuk_id, b.tutar)} style={{ background: '#16a34a', color: '#fff', border: 'none', borderRadius: '8px', padding: '7px 14px', cursor: 'pointer', fontSize: '.82rem', fontWeight: '700' }}>✓ Onayla</button>
-                  <button onClick={() => p.bildirimReddet(b.id)} style={{ background: '#fee2e2', color: '#dc2626', border: '1px solid #fca5a5', borderRadius: '8px', padding: '7px 14px', cursor: 'pointer', fontSize: '.82rem', fontWeight: '700' }}>✗ Reddet</button>
+                  <button onClick={async () => {
+                    if (!confirm(`${grup.sakin?.ad_soyad} için tüm ${grup.bildirimler.length} bildirim onaylansın mı?`)) return
+                    for (const b of grup.bildirimler) {
+                      await p.bildirimOnayla(b.id, b.tahakkuk_id, b.tutar)
+                    }
+                  }} style={{ background: '#16a34a', color: '#fff', border: 'none', borderRadius: '8px', padding: '7px 16px', cursor: 'pointer', fontSize: '.82rem', fontWeight: '700' }}>
+                    ✓ Tümünü Onayla ({grup.bildirimler.length})
+                  </button>
+                  <button onClick={async () => {
+                    if (!confirm(`${grup.sakin?.ad_soyad} için tüm ${grup.bildirimler.length} bildirim reddedilsin mi?`)) return
+                    for (const b of grup.bildirimler) {
+                      await p.bildirimReddet(b.id)
+                    }
+                  }} style={{ background: '#fee2e2', color: '#dc2626', border: '1px solid #fca5a5', borderRadius: '8px', padding: '7px 16px', cursor: 'pointer', fontSize: '.82rem', fontWeight: '700' }}>
+                    ✗ Tümünü Reddet
+                  </button>
                 </div>
               </div>
+              {/* Bildirim Listesi */}
+              {grup.bildirimler.map((b: any, i: number) => (
+                <div key={b.id} style={{ padding: '12px 20px', borderBottom: i < grup.bildirimler.length - 1 ? '1px solid #f3f4f6' : 'none', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '12px' }}>
+                  <div>
+                    <div style={{ fontWeight: '600', color: '#374151', fontSize: '.9rem' }}>{b.tahakkuklar?.aidat_turleri?.tur_adi} — {ayAdi(b.tahakkuklar?.donem_ay)} {b.tahakkuklar?.donem_yil}</div>
+                    <div style={{ color: '#6b7280', fontSize: '.78rem' }}>Yöntem: {b.odeme_yontemi} · {new Date(b.odeme_tarihi).toLocaleDateString('tr-TR')}</div>
+                    {b.aciklama && <div style={{ color: '#9ca3af', fontSize: '.75rem' }}>{b.aciklama}</div>}
+                  </div>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                    <span style={{ fontWeight: '800', color: '#16a34a', fontSize: '1rem' }}>{paraFormat(Number(b.tutar))}</span>
+                    <button onClick={() => p.bildirimOnayla(b.id, b.tahakkuk_id, b.tutar)} style={{ background: '#dcfce7', color: '#166534', border: 'none', borderRadius: '6px', padding: '5px 10px', cursor: 'pointer', fontSize: '.78rem', fontWeight: '700' }}>✓</button>
+                    <button onClick={() => p.bildirimReddet(b.id)} style={{ background: '#fee2e2', color: '#dc2626', border: 'none', borderRadius: '6px', padding: '5px 10px', cursor: 'pointer', fontSize: '.78rem', fontWeight: '700' }}>✗</button>
+                  </div>
+                </div>
+              ))}
             </div>
-          </div>
-        ))}
+          )
+        })
+      })()}
     </div>
   )
 
