@@ -1,15 +1,6 @@
-import nodemailer from 'nodemailer'
 import { NextResponse } from 'next/server'
 
-const transporter = nodemailer.createTransport({
-  host: 'smtp.resend.com',
-  port: 465,
-  secure: true,
-  auth: {
-    user: 'resend',
-    pass: process.env.RESEND_API_KEY,
-  },
-})
+
 
 export async function POST(request: Request) {
   const { tip, alici, aliciAd, veri } = await request.json()
@@ -139,13 +130,22 @@ export async function POST(request: Request) {
   }
 
   try {
-    await transporter.sendMail({
-      from: "Aidat Yönetim Sistemi <onboarding@resend.dev>",
-      to: alici,
-      subject: konu,
-      html,
+    const res = await fetch('https://api.resend.com/emails', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${process.env.RESEND_API_KEY}`,
+      },
+      body: JSON.stringify({
+        from: 'Aidat Sistemi <onboarding@resend.dev>',
+        to: alici,
+        subject: konu,
+        html,
+      })
     })
-    return NextResponse.json({ success: true })
+    const data = await res.json()
+    if (!res.ok) return NextResponse.json({ error: data }, { status: 400 })
+    return NextResponse.json({ success: true, id: data.id })
   } catch (err: any) {
     return NextResponse.json({ error: err.message }, { status: 500 })
   }
