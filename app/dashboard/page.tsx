@@ -369,7 +369,10 @@ export default function Dashboard() {
       const { data: sm } = await supabase.from('profiller').select('ad_soyad, email').eq('rol', 'sakin').eq('durum', 'aktif').not('email', 'is', null)
       let ms = 0
       for (const s of sm || []) { if (!s.email) continue; await fetch('/api/email', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ tip: 'duyuru', alici: s.email, aliciAd: s.ad_soyad, veri: { baslik: duyuruForm.baslik, icerik: duyuruForm.icerik } }) }); ms++ }
-      setDuyuruMesaj({ tip: 'basari', metin: `Duyuru yayınlandı! ${ms} sakine mail gönderildi.` })
+      // Push bildirim gönder
+      const pushRes = await fetch('/api/push-send', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ herkese: true, title: `📢 ${duyuruForm.baslik}`, body: duyuruForm.icerik.substring(0, 100) + (duyuruForm.icerik.length > 100 ? '...' : ''), url: '/sakin' }) })
+      const pushData = await pushRes.json()
+      setDuyuruMesaj({ tip: 'basari', metin: `Duyuru yayınlandı! ${ms} sakine mail, ${pushData.gonderilen || 0} cihaza push gönderildi.` })
       setDuyuruForm({ baslik: '', icerik: '' })
       const { data } = await supabase.from('duyurular').select('*').order('olusturma', { ascending: false })
       setDuyurular(data || [])
@@ -1289,14 +1292,7 @@ function DashboardIcerik(p: any) {
         <div style={cardStyle}>
           <div style={{ background: '#374151', color: '#fff', padding: '12px 20px', fontWeight: '700', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
           <span>📋 Yayınlanan ({p.duyurular.length})</span>
-          <button onClick={async () => {
-            if (!confirm('Tüm sakinlere push bildirim gönderilsin mi?')) return
-            const res = await fetch('/api/push-send', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ herkese: true, title: '📢 Yeni Duyuru', body: 'Aidat sisteminizde yeni bir duyuru var.', url: '/sakin' }) })
-            const d = await res.json()
-            alert(`${d.gonderilen} sakine bildirim gönderildi!`)
-          }} style={{ background: '#f0a500', color: '#fff', border: 'none', borderRadius: '8px', padding: '5px 12px', cursor: 'pointer', fontSize: '.78rem', fontWeight: '700' }}>
-            🔔 Push Gönder
-          </button>
+
         </div>
           {p.duyurular.length === 0 ? <div style={{ padding: '32px', textAlign: 'center', color: '#9ca3af' }}>Henüz duyuru yok.</div>
             : p.duyurular.map((d: any, i: number) => (
