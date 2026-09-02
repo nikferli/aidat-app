@@ -1,7 +1,13 @@
-import { Resend } from 'resend'
+import nodemailer from 'nodemailer'
 import { NextResponse } from 'next/server'
 
-const resend = new Resend(process.env.RESEND_API_KEY)
+const transporter = nodemailer.createTransport({
+  service: 'gmail',
+  auth: {
+    user: process.env.GMAIL_USER,
+    pass: process.env.GMAIL_PASS,
+  },
+})
 
 export async function POST(request: Request) {
   const { tip, alici, aliciAd, veri } = await request.json()
@@ -131,14 +137,13 @@ export async function POST(request: Request) {
   }
 
   try {
-    const { data, error } = await resend.emails.send({
-      from: 'Aidat Sistemi <onboarding@resend.dev>',
+    await transporter.sendMail({
+      from: `"Aidat Yönetim Sistemi" <${process.env.GMAIL_USER}>`,
       to: alici,
       subject: konu,
       html,
     })
-    if (error) return NextResponse.json({ error }, { status: 400 })
-    return NextResponse.json({ success: true, id: data?.id })
+    return NextResponse.json({ success: true })
   } catch (err: any) {
     return NextResponse.json({ error: err.message }, { status: 500 })
   }
