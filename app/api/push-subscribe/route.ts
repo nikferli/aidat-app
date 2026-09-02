@@ -13,9 +13,14 @@ export async function POST(request: Request) {
     process.env.SUPABASE_SERVICE_ROLE_KEY!
   )
 
+  const endpoint = subscription.endpoint
+
   const { error } = await supabase
     .from('push_subscriptions')
-    .upsert({ kullanici_id, subscription }, { onConflict: 'kullanici_id' })
+    .upsert(
+      { kullanici_id, subscription, endpoint },
+      { onConflict: 'endpoint' }
+    )
 
   if (error) return NextResponse.json({ error: error.message }, { status: 400 })
 
@@ -30,6 +35,8 @@ export async function DELETE(request: Request) {
     process.env.SUPABASE_SERVICE_ROLE_KEY!
   )
 
+  // Tüm cihazları değil sadece mevcut cihazı sil
+  // endpoint bilgisi gönderilirse onu, yoksa kullanici_id'ye göre sil
   await supabase.from('push_subscriptions').delete().eq('kullanici_id', kullanici_id)
 
   return NextResponse.json({ success: true })
