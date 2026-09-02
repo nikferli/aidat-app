@@ -2,10 +2,12 @@ import nodemailer from 'nodemailer'
 import { NextResponse } from 'next/server'
 
 const transporter = nodemailer.createTransport({
-  service: 'gmail',
+  host: 'smtp.resend.com',
+  port: 465,
+  secure: true,
   auth: {
-    user: process.env.GMAIL_USER,
-    pass: process.env.GMAIL_PASS,
+    user: 'resend',
+    pass: process.env.RESEND_API_KEY,
   },
 })
 
@@ -138,7 +140,7 @@ export async function POST(request: Request) {
 
   try {
     await transporter.sendMail({
-      from: `"Aidat Yönetim Sistemi" <${process.env.GMAIL_USER}>`,
+      from: "Aidat Yönetim Sistemi <onboarding@resend.dev>",
       to: alici,
       subject: konu,
       html,
