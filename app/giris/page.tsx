@@ -16,9 +16,17 @@ export default function GirisPage() {
     setYukleniyor(true)
     setHata('')
 
-    const { data, error } = await supabase.auth.signInWithPassword({ email, password: sifre })
+    let sonuc
+    try {
+      sonuc = await supabase.auth.signInWithPassword({ email, password: sifre })
+    } catch {
+      setHata('Bağlantı hatası. Lütfen tekrar deneyin.')
+      setYukleniyor(false)
+      return
+    }
+    const { data, error } = sonuc
 
-    if (error) {
+    if (error || !data?.user) {
       setHata('E-posta veya şifre hatalı.')
       setYukleniyor(false)
       return
@@ -30,57 +38,50 @@ export default function GirisPage() {
     router.push(profil?.rol === 'yonetici' ? '/dashboard' : '/sakin')
   }
 
+  const girdi: React.CSSProperties = {
+    width: '100%', boxSizing: 'border-box', padding: '12px 16px', border: '1px solid #e5e7eb',
+    borderRadius: '12px', fontSize: '14px', outline: 'none', background: '#fff', color: '#111827'
+  }
+  const etiket: React.CSSProperties = { display: 'block', fontSize: '14px', fontWeight: 700, color: '#374151', marginBottom: '8px' }
+
   return (
-    <div className="min-h-screen flex items-center justify-center p-4"
-      style={{ background: 'linear-gradient(135deg, #1a3c5e 0%, #2e7d9f 60%, #4db8d4 100%)' }}>
-      <div className="w-full max-w-md">
-        <div className="text-center mb-8">
-          <div className="inline-flex items-center justify-center w-20 h-20 rounded-2xl mb-4 shadow-lg"
-            style={{ background: 'rgba(255,255,255,.15)', backdropFilter: 'blur(10px)', border: '1px solid rgba(255,255,255,.2)' }}>
-            <span className="text-4xl">🏢</span>
+    <div style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '16px', boxSizing: 'border-box', background: '#2e7d9f', backgroundImage: 'linear-gradient(135deg, #1a3c5e 0%, #2e7d9f 60%, #4db8d4 100%)', fontFamily: 'Arial, Helvetica, sans-serif' }}>
+      <div style={{ width: '100%', maxWidth: '420px' }}>
+        <div style={{ textAlign: 'center', marginBottom: '32px' }}>
+          <div style={{ display: 'inline-block', width: '80px', height: '80px', lineHeight: '80px', borderRadius: '16px', marginBottom: '16px', background: 'rgba(255,255,255,.15)', border: '1px solid rgba(255,255,255,.2)' }}>
+            <span style={{ fontSize: '36px' }}>🏢</span>
           </div>
-          <h1 className="text-2xl font-bold text-white">Aidat Yönetim Sistemi</h1>
-          <p className="text-white/70 text-sm mt-1">Hesabınıza giriş yapın</p>
+          <h1 style={{ margin: 0, fontSize: '24px', fontWeight: 700, color: '#fff' }}>Aidat Yönetim Sistemi</h1>
+          <p style={{ margin: '4px 0 0', fontSize: '14px', color: 'rgba(255,255,255,.75)' }}>Hesabınıza giriş yapın</p>
         </div>
 
-        <div className="bg-white rounded-2xl shadow-2xl p-8">
-          <form onSubmit={girisYap} className="space-y-5">
+        <div style={{ background: '#fff', borderRadius: '16px', boxShadow: '0 25px 50px rgba(0,0,0,.25)', padding: '32px' }}>
+          <form onSubmit={girisYap} method="post" action="#">
             {hata && (
-              <div className="bg-red-50 border border-red-200 text-red-700 rounded-xl px-4 py-3 text-sm flex items-center gap-2">
-                <span>⚠️</span> {hata}
+              <div style={{ background: '#fef2f2', border: '1px solid #fecaca', color: '#b91c1c', borderRadius: '12px', padding: '12px 16px', fontSize: '14px', marginBottom: '20px' }}>
+                ⚠️ {hata}
               </div>
             )}
-            <div>
-              <label className="block text-sm font-bold text-gray-700 mb-2">E-posta Adresi</label>
+            <div style={{ marginBottom: '20px' }}>
+              <label style={etiket}>E-posta Adresi</label>
               <input type="email" value={email} onChange={e => setEmail(e.target.value)}
-                required placeholder="ornek@site.com"
-                className="w-full px-4 py-3 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-blue-900 transition-all" />
+                required placeholder="ornek@site.com" autoComplete="username" style={girdi} />
             </div>
-            <div>
-              <label className="block text-sm font-bold text-gray-700 mb-2">Şifre</label>
+            <div style={{ marginBottom: '20px' }}>
+              <label style={etiket}>Şifre</label>
               <input type="password" value={sifre} onChange={e => setSifre(e.target.value)}
-                required placeholder="••••••••"
-                className="w-full px-4 py-3 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-blue-900 transition-all" />
+                required placeholder="••••••••" autoComplete="current-password" style={girdi} />
             </div>
             <button type="submit" disabled={yukleniyor}
-              className="w-full py-3 rounded-xl text-white font-bold text-sm transition-all duration-200 flex items-center justify-center gap-2"
-              style={{ background: yukleniyor ? '#9ca3af' : 'linear-gradient(135deg, #1a3c5e, #2e7d9f)' }}>
-              {yukleniyor ? (
-                <>
-                  <svg className="animate-spin h-4 w-4" viewBox="0 0 24 24" fill="none">
-                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"/>
-                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8z"/>
-                  </svg>
-                  Giriş yapılıyor...
-                </>
-              ) : '🚀 Giriş Yap'}
+              style={{ width: '100%', padding: '12px', border: 'none', borderRadius: '12px', color: '#fff', fontWeight: 700, fontSize: '14px', cursor: 'pointer', background: yukleniyor ? '#9ca3af' : '#2e7d9f', backgroundImage: yukleniyor ? 'none' : 'linear-gradient(135deg, #1a3c5e, #2e7d9f)' }}>
+              {yukleniyor ? 'Giriş yapılıyor...' : '🚀 Giriş Yap'}
             </button>
           </form>
-          <div className="mt-6 pt-6 border-t border-gray-100 text-center">
-            <p className="text-xs text-gray-400">© {new Date().getFullYear()} Aidat Yönetim Sistemi</p>
+          <div style={{ marginTop: '24px', paddingTop: '24px', borderTop: '1px solid #f3f4f6', textAlign: 'center' }}>
+            <p style={{ margin: 0, fontSize: '12px', color: '#9ca3af' }}>© {new Date().getFullYear()} Aidat Yönetim Sistemi</p>
           </div>
         </div>
-        <p className="text-center text-white/50 text-xs mt-6">Güvenli bağlantı ile korunmaktadır 🔒</p>
+        <p style={{ textAlign: 'center', color: 'rgba(255,255,255,.55)', fontSize: '12px', marginTop: '24px' }}>Güvenli bağlantı ile korunmaktadır 🔒</p>
       </div>
     </div>
   )
